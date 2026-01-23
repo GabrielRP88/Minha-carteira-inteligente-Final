@@ -1,0 +1,7 @@
+{
+  "name": "Minha Carteira Inteligente",
+  "description": "Uma carteira financeira completa com controle de parcelas, cartões de crédito e previsões futuras com notificações em tempo real.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
