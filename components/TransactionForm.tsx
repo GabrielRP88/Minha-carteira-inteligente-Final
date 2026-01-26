@@ -1,16 +1,13 @@
 
-import React, { useState, useRef, useMemo } from 'react';
-import { TransactionType, Transaction, CreditCard, BankAccount } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Transaction, TransactionType, CreditCard, BankAccount } from '../types';
 import { 
-  X, Camera, Upload, Barcode, CheckCircle, Clock, 
-  ChevronDown, FileText, Trash2, Receipt, Plus, 
-  Tag, CreditCard as CardIcon, Building2, Calculator,
-  ChevronRight, Calendar, Info, Check, Sparkles, Paperclip,
-  Share2, Eye, Copy, Landmark, Wallet, Image as ImageIcon,
-  ArrowLeft, Search
+  X, Check, Calendar, Tag, CreditCard as CardIcon, DollarSign, 
+  Repeat, Camera, Upload, Trash2, Plus, Paperclip, FileText, 
+  Eye, Share2, Receipt, ScanBarcode, Minus, Wallet, ChevronRight, ChevronLeft, CalendarClock
 } from 'lucide-react';
 import { CameraModal } from './CameraModal';
-import { generateId } from '../utils/helpers';
+import { generateId, getLocalDateStr } from '../utils/helpers';
 
 interface Props {
   initialData?: Transaction;
@@ -22,52 +19,94 @@ interface Props {
   bankAccounts: BankAccount[];
   categories: string[];
   allTransactions: Transaction[];
-  onAddCategory: (cat: string) => void;
-  onRemoveCategory: (cat: string) => void;
+  onAddCategory: (category: string) => void;
+  onRemoveCategory: (category: string) => void;
 }
 
-export const TransactionForm: React.FC<Props> = ({ 
-  initialData, preDefinedDate, fixedType, onAdd, onClose, creditCards, bankAccounts, categories, allTransactions, onAddCategory, onRemoveCategory 
+export const TransactionForm: React.FC<Props> = ({
+  initialData, preDefinedDate, fixedType, onAdd, onClose,
+  creditCards, bankAccounts, categories, onAddCategory, onRemoveCategory
 }) => {
-  const [description, setDescription] = useState(initialData?.description || '');
-  const [amount, setAmount] = useState(initialData?.amount?.toString() || '');
-  const [date, setDate] = useState(initialData?.date || preDefinedDate || new Date().toISOString().split('T')[0]);
-  const [type, setType] = useState<TransactionType>(fixedType || initialData?.type || TransactionType.INCOME);
-  const [category, setCategory] = useState(initialData?.category || categories[0]);
-  const [barcode, setBarcode] = useState(initialData?.barcode || '');
+  const [description, setDescription] = useState('');
+  const [amount, setAmount] = useState('');
+  const [type, setType] = useState<TransactionType>(TransactionType.EXPENSE);
+  const [date, setDate] = useState(getLocalDateStr());
+  const [category, setCategory] = useState('');
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [totalInstallments, setTotalInstallments] = useState(2);
+  const [paymentMethod, setPaymentMethod] = useState<'ACCOUNT' | 'CARD'>('ACCOUNT');
+  const [cardId, setCardId] = useState('');
+  const [bankAccountId, setBankAccountId] = useState('');
+  const [barcode, setBarcode] = useState('');
   
-  const [billAttachment, setBillAttachment] = useState<string | undefined>(initialData?.billAttachment);
-  const [billFileName, setBillFileName] = useState<string | undefined>(initialData?.billFileName);
-  const [receiptAttachment, setReceiptAttachment] = useState<string | undefined>(initialData?.receiptAttachment);
-  const [receiptFileName, setReceiptFileName] = useState<string | undefined>(initialData?.receiptFileName);
-
-  const [view, setView] = useState<'FORM' | 'CATEGORIES' | 'INSTALLMENTS'>('FORM');
+  const [billAttachment, setBillAttachment] = useState<string | undefined>(undefined);
+  const [billFileName, setBillFileName] = useState<string | undefined>(undefined);
+  const [receiptAttachment, setReceiptAttachment] = useState<string | undefined>(undefined);
+  const [receiptFileName, setReceiptFileName] = useState<string | undefined>(undefined);
+  
   const [activeCameraType, setActiveCameraType] = useState<'BILL' | 'RECEIPT' | null>(null);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
-  
-  const [paymentMethod, setPaymentMethod] = useState<'ACCOUNT' | 'CARD'>(initialData?.cardId ? 'CARD' : 'ACCOUNT');
-  const [selectedCardId, setSelectedCardId] = useState(initialData?.cardId || creditCards[0]?.id || '');
-  const [selectedAccountId, setSelectedAccountId] = useState(initialData?.bankAccountId || bankAccounts.find(a=>a.isDefault)?.id || bankAccounts[0]?.id || '');
-  const [installmentsCount, setInstallmentsCount] = useState(initialData?.totalInstallments || 1);
-  const [newCatName, setNewCatName] = useState('');
-
   const billFileInputRef = useRef<HTMLInputElement>(null);
   const receiptFileInputRef = useRef<HTMLInputElement>(null);
 
-  const sortedCategories = useMemo(() => {
-    const usage: Record<string, number> = {};
-    allTransactions.forEach(t => { usage[t.category] = (usage[t.category] || 0) + 1; });
-    return [...categories].sort((a, b) => (usage[b] || 0) - (usage[a] || 0));
-  }, [categories, allTransactions]);
+  const [isSelectingCategory, setIsSelectingCategory] = useState(false);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+  const categoryListRef = useRef<HTMLDivElement>(null);
 
-  const currentAmountNum = parseFloat(amount) || 0;
+  useEffect(() => {
+    if (initialData) {
+      setDescription(initialData.description);
+      setAmount(String(initialData.amount));
+      setType(initialData.type);
+      setDate(initialData.date);
+      setCategory(initialData.category);
+      setIsInstallment(initialData.isInstallment);
+      setTotalInstallments(initialData.totalInstallments || 2);
+      setPaymentMethod(initialData.type === TransactionType.CREDIT_CARD ? 'CARD' : 'ACCOUNT');
+      setCardId(initialData.cardId || '');
+      setBankAccountId(initialData.bankAccountId || '');
+      setBarcode(initialData.barcode || '');
+      setBillAttachment(initialData.billAttachment);
+      setBillFileName(initialData.billFileName);
+      setReceiptAttachment(initialData.receiptAttachment);
+      setReceiptFileName(initialData.receiptFileName);
+    } else {
+      if (fixedType) setType(fixedType);
+      
+      const today = getLocalDateStr();
+      if (preDefinedDate) {
+        setDate(preDefinedDate);
+      }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'BILL' | 'RECEIPT') => {
+      if (bankAccounts.length > 0) {
+        const defaultAcc = bankAccounts.find(a => a.isDefault) || bankAccounts[0];
+        setBankAccountId(defaultAcc.id);
+      }
+      if (creditCards.length > 0) setCardId(creditCards[0].id);
+      if (categories.length > 0) setCategory(categories[0]);
+    }
+  }, [initialData, preDefinedDate, fixedType, bankAccounts, creditCards, categories]);
+
+  // Scroll to bottom when creating category
+  useEffect(() => {
+    if (isCreatingCategory && categoryListRef.current) {
+        setTimeout(() => {
+            if (categoryListRef.current) {
+                categoryListRef.current.scrollTop = categoryListRef.current.scrollHeight;
+            }
+        }, 100);
+    }
+  }, [isCreatingCategory]);
+
+  const isIncome = type === TransactionType.INCOME;
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'BILL' | 'RECEIPT') => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (target === 'BILL') {
+        if (type === 'BILL') {
           setBillAttachment(reader.result as string);
           setBillFileName(file.name);
         } else {
@@ -79,361 +118,493 @@ export const TransactionForm: React.FC<Props> = ({
     }
   };
 
-  const handleCameraCapture = (base64: string) => {
-    if (activeCameraType === 'BILL') {
-      setBillAttachment(base64);
-      setBillFileName(`Doc_${Date.now()}.jpg`);
-    } else if (activeCameraType === 'RECEIPT') {
-      setReceiptAttachment(base64);
-      setReceiptFileName(`Comprovante_${Date.now()}.jpg`);
+  const openFile = (dataUrl: string) => {
+    if (dataUrl.includes('application/pdf')) {
+      const base64Parts = dataUrl.split(',');
+      const byteCharacters = atob(base64Parts[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } else {
+        const win = window.open();
+        if(win) {
+            win.document.write(`<iframe src="${dataUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        }
     }
-    setActiveCameraType(null);
   };
 
   const shareContent = async (title: string, text: string, dataUrl?: string, fileName?: string) => {
-    if (!navigator.share) return alert("Compartilhamento não suportado.");
+    if (!navigator.share) return alert("Compartilhamento não disponível.");
     try {
       const shareData: ShareData = { title, text };
       if (dataUrl && fileName) {
         const response = await fetch(dataUrl);
         const blob = await response.blob();
         const file = new File([blob], fileName, { type: blob.type });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) shareData.files = [file];
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          shareData.files = [file];
+        }
       }
       await navigator.share(shareData);
     } catch (err) { console.error(err); }
   };
 
-  const openFile = (dataUrl: string) => {
-    if (dataUrl.includes('application/pdf')) {
-      const base64Parts = dataUrl.split(',');
-      const byteCharacters = atob(base64Parts[1]);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-    } else setPreviewImage(dataUrl);
-  };
-
-  const submitWithStatus = (isPaidStatus: boolean) => {
-    if (!description || !amount) return;
-    const numAmount = parseFloat(amount) || 0;
-    const isCard = paymentMethod === 'CARD' && type !== TransactionType.INCOME;
-    const transactionsToCreate: Transaction[] = [];
-
-    if (isCard) {
-      const card = creditCards.find(c => c.id === selectedCardId);
-      if (!card) return;
-      const parcelValue = parseFloat((numAmount / installmentsCount).toFixed(2));
-      
-      // Quebrar a data inicial para manipulação
-      const [y, m, d] = date.split('-').map(Number);
-
-      for (let i = 0; i < installmentsCount; i++) {
-        // Incrementa o mês corretamente
-        const newDateObj = new Date(y, m - 1 + i, d);
-        const installmentDate = newDateObj.toLocaleDateString('en-CA');
-
-        transactionsToCreate.push({
-          id: generateId(),
-          description: installmentsCount > 1 ? `${description} (${i + 1}/${installmentsCount})` : description,
-          amount: parcelValue,
-          date: installmentDate,
-          type: TransactionType.CREDIT_CARD,
-          category,
-          barcode: undefined,
-          billAttachment: undefined,
-          billFileName: undefined,
-          receiptAttachment: i === 0 ? receiptAttachment : undefined,
-          receiptFileName: i === 0 ? receiptFileName : undefined,
-          isInstallment: installmentsCount > 1,
-          totalInstallments: installmentsCount,
-          currentInstallment: i + 1,
-          isPaid: false,
-          cardId: selectedCardId
-        });
-      }
-    } else {
-      transactionsToCreate.push({
-        id: initialData?.id || generateId(),
-        description,
-        amount: numAmount,
-        date,
-        type: type,
-        category,
-        barcode: type === TransactionType.INCOME ? undefined : barcode,
-        billAttachment,
-        billFileName,
-        receiptAttachment,
-        receiptFileName,
-        isInstallment: false,
-        isPaid: isPaidStatus,
-        bankAccountId: selectedAccountId,
-      });
+  const handleSave = (finalIsPaid: boolean) => {
+    if (!amount || !date || !category) {
+      alert("Preencha o valor e a categoria");
+      return;
     }
-    onAdd(transactionsToCreate);
-    onClose();
+
+    const val = parseFloat(amount.replace(',', '.'));
+    if (isNaN(val) || val <= 0) {
+      alert("Valor inválido");
+      return;
+    }
+
+    const transactionsToAdd: Transaction[] = [];
+    const baseId = initialData?.id || generateId();
+    const descToSave = description.trim() || category; 
+
+    if (paymentMethod === 'CARD' && !isIncome) {
+        if (isInstallment && totalInstallments > 1) {
+            const partValue = val / totalInstallments;
+            let currentDate = new Date(date + 'T12:00:00');
+            
+            for (let i = 0; i < totalInstallments; i++) {
+                const dateStr = getLocalDateStr(currentDate);
+                transactionsToAdd.push({
+                    id: i === 0 ? baseId : generateId(),
+                    description: `${descToSave} (${i + 1}/${totalInstallments})`,
+                    amount: partValue,
+                    date: dateStr,
+                    type: TransactionType.CREDIT_CARD,
+                    category,
+                    isInstallment: true,
+                    totalInstallments,
+                    currentInstallment: i + 1,
+                    isPaid: false, 
+                    parentId: i === 0 ? undefined : baseId,
+                    cardId,
+                    billAttachment: i === 0 ? billAttachment : undefined,
+                    billFileName: i === 0 ? billFileName : undefined,
+                    barcode: undefined // No barcode for credit card purchases usually
+                });
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
+        } else {
+            transactionsToAdd.push({
+                id: baseId,
+                description: descToSave,
+                amount: val,
+                date,
+                type: TransactionType.CREDIT_CARD,
+                category,
+                isInstallment: false,
+                isPaid: false, 
+                cardId,
+                billAttachment,
+                billFileName,
+                barcode: undefined
+            });
+        }
+    } else {
+        transactionsToAdd.push({
+            id: baseId,
+            description: descToSave,
+            amount: val,
+            date,
+            type: isIncome ? TransactionType.INCOME : TransactionType.EXPENSE,
+            category,
+            isInstallment: false,
+            isPaid: finalIsPaid, 
+            bankAccountId,
+            billAttachment,
+            billFileName,
+            receiptAttachment,
+            receiptFileName,
+            barcode
+        });
+    }
+    
+    onAdd(transactionsToAdd);
   };
 
-  const isIncome = type === TransactionType.INCOME;
+  const handleCameraCapture = (base64: string) => {
+    if (activeCameraType === 'BILL') {
+        setBillAttachment(base64);
+        setBillFileName(`Foto_${Date.now()}.jpg`);
+    } else if (activeCameraType === 'RECEIPT') {
+        setReceiptAttachment(base64);
+        setReceiptFileName(`Recibo_${Date.now()}.jpg`);
+    }
+    setActiveCameraType(null);
+  };
 
-  if (view === 'CATEGORIES') {
-    return (
-      <div className="flex flex-col h-full bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
-           <button onClick={() => setView('FORM')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ArrowLeft size={18}/></button>
-           <h3 className="text-sm font-black uppercase tracking-tight">Categorias</h3>
-           <div className="w-8"></div>
-        </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1.5">
-          {sortedCategories.map((cat, idx) => (
-            <div key={idx} className={`w-full flex items-center gap-2 p-1 rounded-xl transition-all ${category === cat ? 'bg-primary/10 border border-primary/20' : 'bg-slate-50 dark:bg-slate-800 border border-transparent'}`}>
-              <button onClick={() => { setCategory(cat); setView('FORM'); }} className="flex-1 flex items-center justify-between p-2.5">
-                <div className="flex items-center gap-3">
-                  <Tag size={14} className={category === cat ? 'text-primary' : 'text-slate-400'}/>
-                  <span className={`font-black text-[9px] uppercase tracking-widest ${category === cat ? 'text-primary' : 'text-slate-500'}`}>{cat}</span>
-                </div>
-                {category === cat && <CheckCircle size={14} className="text-primary"/>}
-              </button>
-              <button onClick={() => onRemoveCategory(cat)} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 size={14}/></button>
-            </div>
-          ))}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Nova Categoria</p>
-            <div className="flex gap-2 p-1 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
-               <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nome..." className="flex-1 bg-transparent px-3 py-1.5 font-bold text-xs outline-none" />
-               <button onClick={() => { if(newCatName) { onAddCategory(newCatName); setCategory(newCatName); setNewCatName(''); } }} className="p-2 bg-primary text-white rounded-lg"><Plus size={14}/></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleAddCategory = () => {
+    const trimmed = newCategory.trim();
+    if (trimmed) {
+      if (categories.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
+        alert('Esta categoria já existe.');
+        return;
+      }
+      onAddCategory(trimmed);
+      setCategory(trimmed);
+      setNewCategory('');
+      setIsCreatingCategory(false);
+    }
+  };
 
-  if (view === 'INSTALLMENTS') {
+  if (isSelectingCategory) {
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-slate-900">
-        <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
-           <button onClick={() => setView('FORM')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ArrowLeft size={18}/></button>
-           <h3 className="text-sm font-black uppercase tracking-tight">Opções de Parcelamento</h3>
-           <div className="w-8"></div>
+      <div className="flex flex-col h-full animate-in slide-in-from-right-4 relative overflow-hidden">
+        <div className="flex justify-between items-center mb-4 shrink-0 pt-2 px-1">
+          <button 
+            type="button"
+            onClick={() => { setIsSelectingCategory(false); setDeletingCategory(null); }} 
+            className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:bg-slate-200 transition-all flex items-center gap-2 hover:scale-105 active:scale-95"
+          >
+            <ChevronLeft size={20}/> <span className="text-xs font-black uppercase">Voltar</span>
+          </button>
+          <h3 className="text-xl font-black uppercase tracking-tight">Categorias</h3>
+          <div className="w-10"></div>
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
-          <div className="grid grid-cols-2 gap-2 mb-6">
-            {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(p => {
-              const installmentValue = currentAmountNum / p;
-              return (
-                <button 
-                  key={p} 
-                  onClick={() => { setInstallmentsCount(p); setView('FORM'); }} 
-                  className={`p-3 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${installmentsCount === p ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}
-                >
-                  <span className="text-sm font-black">{p}x</span>
-                  <span className={`text-[8px] font-bold ${installmentsCount === p ? 'text-white/70' : 'text-slate-400'}`}>
-                    {installmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Nº Personalizado</p>
-             <div className="flex gap-2">
-                <input 
-                  type="number" 
-                  value={installmentsCount} 
-                  onChange={e => setInstallmentsCount(parseInt(e.target.value) || 1)}
-                  className="flex-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xl font-black text-center outline-none border-2 border-transparent focus:border-blue-500"
-                />
-                <button onClick={() => setView('FORM')} className="px-6 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest">OK</button>
+
+        <div 
+            ref={categoryListRef} 
+            className="flex-1 overflow-y-auto custom-scrollbar p-1 min-h-0 space-y-2 pb-24 touch-pan-y overscroll-contain"
+        >
+           {categories.map(cat => (
+             <div key={cat} className="flex items-center gap-2 group w-full shrink-0 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]">
+               <button 
+                 type="button"
+                 onClick={() => { setCategory(cat); setIsSelectingCategory(false); }}
+                 className={`flex-1 p-4 rounded-2xl font-bold text-xs text-left transition-all flex justify-between items-center border-2 ${category === cat ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800 hover:border-primary/50'}`}
+               >
+                 {cat}
+                 {category === cat && <Check size={16}/>}
+               </button>
+               
+               {deletingCategory === cat ? (
+                 <div className="flex items-center gap-1 animate-in slide-in-from-right-4 fade-in duration-300">
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onRemoveCategory(cat);
+                        if(category === cat) setCategory('');
+                        setDeletingCategory(null);
+                      }}
+                      className="p-4 bg-rose-500 text-white rounded-2xl font-black text-[10px] uppercase shadow-md active:scale-95 transition-all flex items-center justify-center"
+                    >
+                      Apagar
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeletingCategory(null);
+                      }}
+                      className="p-4 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 rounded-2xl active:scale-95 transition-all"
+                    >
+                      <X size={18}/>
+                    </button>
+                 </div>
+               ) : (
+                 <button 
+                   type="button"
+                   onClick={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDeletingCategory(cat);
+                   }}
+                   className="p-4 bg-rose-500/10 text-rose-500 rounded-2xl hover:bg-rose-500 hover:text-white transition-all shrink-0 active:scale-90 border-2 border-transparent"
+                 >
+                   <Trash2 size={18}/>
+                 </button>
+               )}
              </div>
-          </div>
+           ))}
+
+           {isCreatingCategory ? (
+              <div className="flex gap-2 items-center p-1 animate-in fade-in slide-in-from-bottom-2 shrink-0">
+                  <input 
+                    autoFocus
+                    placeholder="Nome da nova categoria..." 
+                    value={newCategory} 
+                    onChange={e => setNewCategory(e.target.value)}
+                    className="flex-1 px-4 py-4 bg-slate-50 dark:bg-slate-800 border-2 border-primary rounded-2xl font-bold outline-none text-xs"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                  />
+                  <button 
+                    type="button"
+                    onClick={handleAddCategory} 
+                    className="p-4 bg-primary text-white rounded-2xl shadow-lg active:scale-95 transition-all"
+                  >
+                    <Check size={20}/>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => { setIsCreatingCategory(false); setNewCategory(''); }} 
+                    className="p-4 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-2xl active:scale-95 transition-all"
+                  >
+                    <X size={20}/>
+                  </button>
+              </div>
+           ) : (
+              <button
+                type="button"
+                onClick={() => setIsCreatingCategory(true)}
+                className="w-full p-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-primary hover:border-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-2 group shrink-0 active:scale-95"
+              >
+                <Plus size={18} className="group-hover:scale-110 transition-transform"/>
+                <span className="font-black text-[10px] uppercase tracking-widest">Criar Nova Categoria</span>
+              </button>
+           )}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-white dark:bg-slate-900">
-      <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-slate-50 dark:border-slate-800">
-        <div>
-           <h3 className={`text-base font-black uppercase tracking-tight leading-none mb-0.5 ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-white'}`}>
-             {isIncome ? 'Nova Entrada' : 'Nova Saída'}
-           </h3>
-           <p className="text-[7px] font-black opacity-30 uppercase tracking-[0.4em]">Financeiro Smart</p>
-        </div>
-        <button onClick={onClose} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full"><X size={16}/></button>
+    <div className="flex flex-col h-full overflow-hidden relative">
+      <div className="flex justify-between items-center mb-4 shrink-0">
+        <h3 className="text-2xl font-black uppercase tracking-tight">{initialData ? 'Editar' : 'Novo'} Lançamento</h3>
+        <button onClick={onClose} className="p-3 bg-slate-100 dark:bg-slate-800 rounded-full hover:rotate-90 hover:scale-110 active:scale-90 transition-all duration-300"><X size={20}/></button>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5 pb-28">
-        
-        {/* VALOR DESTAQUE */}
-        <section className={`p-4 rounded-2xl shadow-inner text-center relative overflow-hidden transition-colors ${isIncome ? 'bg-emerald-500/5' : 'bg-slate-50 dark:bg-slate-800/40'}`}>
-           <p className="text-[7px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">{isIncome ? 'Recebimento' : 'Valor Total'}</p>
-           <div className="flex items-center justify-center gap-1.5">
-              <span className={`text-lg font-black ${isIncome ? 'text-emerald-500' : 'text-slate-400'}`}>R$</span>
-              <input 
-                type="number" step="0.01" placeholder="0,00" autoFocus
-                value={amount} onChange={e => setAmount(e.target.value)} 
-                className={`w-full max-w-[140px] bg-transparent font-black text-3xl tracking-tighter outline-none text-center ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-white'}`}
-              />
-           </div>
-           {!fixedType && (
-              <div className="flex gap-1.5 p-1 bg-white dark:bg-slate-950/50 rounded-lg mt-3 w-fit mx-auto border border-slate-100 dark:border-slate-800 shadow-sm">
-                {[TransactionType.INCOME, TransactionType.EXPENSE].map(opt => (
-                  <button key={opt} type="button" onClick={() => setType(opt)} className={`px-4 py-1.5 rounded-md text-[7px] font-black uppercase tracking-widest transition-all ${type === opt ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm' : 'text-slate-400'}`}>{opt === 'INCOME' ? 'Entrada' : 'Saída'}</button>
-                ))}
-              </div>
-           )}
-        </section>
-
-        {/* FORMA DE PAGAMENTO */}
-        {!isIncome && (
-           <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-             <button onClick={() => setPaymentMethod('ACCOUNT')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'ACCOUNT' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-400'}`}><Building2 size={12}/> Conta</button>
-             <button onClick={() => setPaymentMethod('CARD')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'CARD' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400'}`}><CardIcon size={12}/> Cartão</button>
-           </div>
-        )}
-
-        {/* SELEÇÃO CONTA/CARTÃO */}
-        <section className="space-y-2.5">
-           <div className="relative">
-              <select 
-                value={paymentMethod === 'CARD' && !isIncome ? selectedCardId : selectedAccountId} 
-                onChange={e => paymentMethod === 'CARD' && !isIncome ? setSelectedCardId(e.target.value) : setSelectedAccountId(e.target.value)} 
-                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-black text-[9px] uppercase outline-none appearance-none border-2 border-transparent focus:border-primary pr-10"
-              >
-                {paymentMethod === 'CARD' && !isIncome ? creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>) : bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.bankName}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40"/>
-           </div>
-
-           {paymentMethod === 'CARD' && !isIncome && (
-              <button onClick={() => setView('INSTALLMENTS')} className="w-full p-3.5 bg-blue-500/5 dark:bg-slate-800 rounded-xl border border-blue-500/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-blue-500/10 text-blue-500 rounded-md"><Calculator size={12}/></div>
-                  <span className="font-black text-[9px] uppercase tracking-widest">{installmentsCount}x de {(currentAmountNum/installmentsCount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                </div>
-                <ChevronRight size={12} className="opacity-30"/>
-              </button>
-           )}
-
-           <input placeholder="Descrição" value={description} onChange={e => setDescription(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none border-2 border-transparent focus:border-primary" />
-
-           <div className="grid grid-cols-2 gap-2.5">
-              <button onClick={() => setView('CATEGORIES')} className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-between group overflow-hidden">
-                <div className="flex items-center gap-2">
-                   <div className="p-1.5 bg-primary/10 text-primary rounded-md"><Tag size={12}/></div>
-                   <span className="font-black text-[8px] uppercase tracking-widest truncate max-w-[60px]">{category}</span>
-                </div>
-                <ChevronDown size={12} className="opacity-20"/>
-              </button>
-              <div className="relative flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-3">
-                 <Calendar size={12} className="text-slate-400 mr-2"/>
-                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className="flex-1 bg-transparent font-black text-[8px] uppercase outline-none py-3 appearance-none" />
-              </div>
-           </div>
-        </section>
-
-        {/* DOCUMENTAÇÃO */}
-        <section className="space-y-3">
-           {!isIncome && paymentMethod === 'ACCOUNT' && (
-             <div className="space-y-1.5">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><Barcode size={10}/> Boleto</p>
-                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl space-y-2">
-                   <textarea value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Cole o código aqui..." className="w-full p-3 bg-white dark:bg-slate-900 rounded-lg font-mono text-[8px] border-2 border-transparent focus:border-primary outline-none shadow-sm min-h-[40px] resize-none" />
-                   {barcode.trim().length > 0 && (
-                      <button onClick={() => shareContent('Boleto', `Código: ${barcode}`)} className="w-full py-2 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center gap-2 font-black text-[7px] uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 dark:border-slate-700"><Share2 size={10}/> Compartilhar</button>
-                   )}
-                </div>
+      <div className="flex-1 overflow-y-auto custom-scrollbar space-y-6 pr-2 min-h-0 pb-24">
+         {!initialData && (
+             <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-100 dark:bg-slate-800 rounded-[1.5rem] shrink-0">
+                 <button onClick={() => setType(TransactionType.INCOME)} className={`py-3 rounded-[1.2rem] font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 ${type === TransactionType.INCOME ? 'bg-emerald-500 text-white shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}>Receita</button>
+                 <button onClick={() => setType(TransactionType.EXPENSE)} className={`py-3 rounded-[1.2rem] font-black text-xs uppercase tracking-widest transition-all duration-300 active:scale-95 ${type !== TransactionType.INCOME ? 'bg-rose-500 text-white shadow-md scale-[1.02]' : 'text-slate-400 hover:text-slate-600'}`}>Despesa</button>
              </div>
-           )}
+         )}
 
-           <div className="space-y-1.5">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                <Paperclip size={10}/> {isIncome ? 'Comprovante' : (paymentMethod === 'CARD' ? 'Recibo Compra' : 'Anexo Doc/Recibo')}
-              </p>
-              {billAttachment ? (
-                <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
-                         {billAttachment.includes('pdf') ? <FileText size={16} className="text-primary"/> : <img src={billAttachment} className="w-full h-full object-cover" />}
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => openFile(billAttachment)} className="p-1.5 bg-primary/10 text-primary rounded-md"><Eye size={10}/></button>
-                        <button onClick={() => shareContent('Arquivo', 'Anexo', billAttachment, billFileName || 'doc.pdf')} className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 rounded-md"><Share2 size={10}/></button>
-                      </div>
-                   </div>
-                   <button onClick={() => { setBillAttachment(undefined); setBillFileName(undefined); }} className="p-1.5 text-rose-500"><Trash2 size={14}/></button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setActiveCameraType('BILL')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all">
-                    <Camera size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">Foto</span>
-                  </button>
-                  <button onClick={() => billFileInputRef.current?.click()} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all">
-                    <Upload size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">PDF</span>
-                  </button>
-                </div>
-              )}
-              <input ref={billFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'BILL')} />
-           </div>
+         {!isIncome && (
+             <div className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-[1.5rem] grid grid-cols-2 gap-2">
+                 <button onClick={() => setPaymentMethod('ACCOUNT')} className={`py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest transition-all duration-300 active:scale-95 ${paymentMethod === 'ACCOUNT' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white scale-[1.02]' : 'text-slate-400'}`}><Wallet size={14}/> Conta / Dinheiro</button>
+                 <button onClick={() => setPaymentMethod('CARD')} className={`py-3 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase tracking-widest transition-all duration-300 active:scale-95 ${paymentMethod === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white scale-[1.02]' : 'text-slate-400'}`}><CardIcon size={14}/> Cartão Crédito</button>
+             </div>
+         )}
 
-           {!isIncome && paymentMethod === 'ACCOUNT' && (
-             <div className="space-y-1.5 pt-1.5 border-t border-slate-50 dark:border-slate-800">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><Receipt size={10}/> Comprovante</p>
-                {receiptAttachment ? (
-                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
-                           {receiptAttachment.includes('pdf') ? <FileText size={16} className="text-emerald-500"/> : <img src={receiptAttachment} className="w-full h-full object-cover" />}
-                        </div>
-                        <div className="flex gap-1">
-                           <button onClick={() => openFile(receiptAttachment)} className="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-md"><Eye size={10}/></button>
-                           <button onClick={() => shareContent('Recibo', 'Comprovante', receiptAttachment, receiptFileName || 'comprovante.pdf')} className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 rounded-md"><Share2 size={10}/></button>
-                        </div>
+         <div className="space-y-4">
+             {paymentMethod === 'CARD' && !isIncome ? (
+                 <div className="space-y-4 animate-in slide-in-from-top-4">
+                     <div className="space-y-1.5">
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Cartão de Crédito</p>
+                         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                             {creditCards.map(c => (
+                                 <button 
+                                    key={c.id} 
+                                    onClick={() => setCardId(c.id)}
+                                    className={`shrink-0 px-4 py-3 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all active:scale-95 ${cardId === c.id ? 'border-primary bg-primary/5 text-primary scale-105' : 'border-transparent bg-slate-50 dark:bg-slate-800 text-slate-500'}`}
+                                 >
+                                    <div className="w-3 h-3 rounded-full" style={{ background: c.color }}></div> {c.name}
+                                 </button>
+                             ))}
+                         </div>
                      </div>
-                     <button onClick={() => { setReceiptAttachment(undefined); setReceiptFileName(undefined); }} className="p-1.5 text-rose-500"><Trash2 size={14}/></button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => setActiveCameraType('RECEIPT')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-all">
-                      <Camera size={16} className="text-slate-400 group-hover:text-emerald-500"/><span className="text-[7px] font-black uppercase text-slate-400">Foto</span>
-                    </button>
-                    <button onClick={() => receiptFileInputRef.current?.click()} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-all">
-                      <Upload size={16} className="text-slate-400 group-hover:text-emerald-500"/><span className="text-[7px] font-black uppercase text-slate-400">PDF</span>
-                    </button>
-                  </div>
-                )}
-                <input ref={receiptFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'RECEIPT')} />
+                     <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl transition-all hover:scale-[1.01]">
+                         <div className="flex items-center gap-3">
+                             <div className={`p-2 rounded-lg ${isInstallment ? 'bg-primary text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}><Repeat size={16}/></div>
+                             <div>
+                                 <p className="font-bold text-xs">Parcelado?</p>
+                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{isInstallment ? `${totalInstallments}x de ${(parseFloat(amount || '0')/totalInstallments).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}` : 'À vista'}</p>
+                             </div>
+                         </div>
+                         <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" checked={isInstallment} onChange={() => setIsInstallment(!isInstallment)} />
+                            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                         </label>
+                     </div>
+                     {isInstallment && (
+                         <div className="space-y-1.5 animate-in slide-in-from-top-2">
+                             <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Número de Parcelas</p>
+                             <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl">
+                                <input 
+                                    type="range" 
+                                    min="2" max="24" 
+                                    value={totalInstallments} 
+                                    onChange={e => setTotalInstallments(Number(e.target.value))}
+                                    className="flex-1 accent-primary h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="font-black text-lg w-8 text-center">{totalInstallments}x</span>
+                             </div>
+                         </div>
+                     )}
+                 </div>
+             ) : (
+                 <div className="space-y-4 animate-in slide-in-from-top-4">
+                     <div className="space-y-1.5">
+                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">{isIncome ? 'Conta de Destino' : 'Conta de Origem'}</p>
+                         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                             {bankAccounts.map(acc => (
+                                 <button 
+                                    key={acc.id} 
+                                    onClick={() => setBankAccountId(acc.id)}
+                                    className={`shrink-0 px-4 py-3 rounded-xl border-2 font-bold text-xs flex items-center gap-2 transition-all active:scale-95 ${bankAccountId === acc.id ? 'border-primary bg-primary/5 text-primary scale-105' : 'border-transparent bg-slate-50 dark:bg-slate-800 text-slate-500'}`}
+                                 >
+                                     {acc.bankName}
+                                 </button>
+                             ))}
+                         </div>
+                     </div>
+                 </div>
+             )}
+         </div>
+
+         <div className="space-y-4">
+            <div className="relative group">
+                <span className={`absolute left-6 top-1/2 -translate-y-1/2 font-black text-lg ${isIncome ? 'text-emerald-500' : 'text-rose-500'}`}>R$</span>
+                <input 
+                    type="number" 
+                    placeholder="0,00" 
+                    value={amount} 
+                    onChange={e => setAmount(e.target.value)}
+                    className={`w-full pl-14 pr-6 py-6 rounded-[2rem] text-3xl font-black outline-none border-2 transition-all group-hover:scale-[1.02] focus:scale-[1.02] ${isIncome ? 'bg-emerald-500/5 border-emerald-500/20 focus:border-emerald-500 text-emerald-600' : 'bg-rose-500/5 border-rose-500/20 focus:border-rose-500 text-rose-600'}`}
+                />
+            </div>
+            <input 
+                placeholder="Descrição (Opcional)" 
+                value={description} 
+                onChange={e => setDescription(e.target.value)}
+                className="w-full px-6 py-5 bg-slate-50 dark:bg-slate-800 rounded-[2rem] font-bold outline-none border-2 border-transparent focus:border-primary/50 transition-all focus:scale-[1.01]"
+            />
+         </div>
+
+         <div className="grid grid-cols-2 gap-4">
+             <div className="space-y-1.5">
+                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Data</p>
+                 <div className="relative">
+                    <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"/>
+                    <input 
+                        type="date" 
+                        value={date} 
+                        onChange={e => setDate(e.target.value)}
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none text-xs transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+                    />
+                 </div>
              </div>
-           )}
-        </section>
-      </div>
+             <div className="space-y-1.5">
+                 <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Categoria</p>
+                 <button 
+                    onClick={() => setIsSelectingCategory(true)}
+                    className="w-full pl-4 pr-4 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold text-xs flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95"
+                 >
+                    <div className="flex items-center gap-2 truncate">
+                       <Tag size={16} className="text-slate-400"/>
+                       <span className="truncate">{category || 'Selecionar...'}</span>
+                    </div>
+                    <ChevronRight size={16} className="text-slate-400 group-hover:text-primary transition-colors"/>
+                 </button>
+             </div>
+         </div>
 
-      <div className="absolute bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-white dark:from-slate-900 via-white/95 to-transparent z-40">
-        <div className="grid grid-cols-2 gap-2.5 max-w-lg mx-auto">
-          <button onClick={() => submitWithStatus(false)} className={`py-3.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-md active:scale-95 ${paymentMethod === 'CARD' && !isIncome ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 col-span-2' : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700'}`}>
-            {isIncome ? 'Agendar' : (paymentMethod === 'CARD' ? 'Confirmar Compra' : 'Agendar')}
-          </button>
-          {!(paymentMethod === 'CARD' && !isIncome) && (
-            <button onClick={() => submitWithStatus(true)} className={`py-3.5 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all ${isIncome ? 'bg-emerald-500' : 'bg-primary'}`}>
-              Confirmar
-            </button>
+         {!isIncome && paymentMethod === 'ACCOUNT' && (
+            <div className="space-y-1.5">
+                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1">Código de Barras (Opcional)</p>
+                <div className="relative">
+                   <ScanBarcode size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"/>
+                   <input 
+                       placeholder="Digite ou cole o código" 
+                       value={barcode} 
+                       onChange={e => setBarcode(e.target.value)}
+                       className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-800 rounded-2xl font-bold outline-none text-xs transition-all hover:bg-slate-100 dark:hover:bg-slate-700"
+                   />
+                </div>
+            </div>
+         )}
+
+         <div className="space-y-1.5">
+          <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
+            <Paperclip size={10}/> {isIncome ? 'Comprovante' : (paymentMethod === 'CARD' ? 'Recibo Compra' : 'Anexo de Cupom ou Conta')}
+          </p>
+          {billAttachment ? (
+            <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between transition-all hover:scale-[1.02]">
+               <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
+                     {billAttachment.includes('pdf') ? <FileText size={16} className="text-primary"/> : <img src={billAttachment} className="w-full h-full object-cover" />}
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => openFile(billAttachment!)} className="p-1.5 bg-primary/10 text-primary rounded-md hover:scale-110 transition-transform"><Eye size={10}/></button>
+                    <button onClick={() => shareContent('Arquivo', 'Anexo', billAttachment, billFileName || 'doc.pdf')} className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 rounded-md hover:scale-110 transition-transform"><Share2 size={10}/></button>
+                  </div>
+               </div>
+               <button onClick={() => { setBillAttachment(undefined); setBillFileName(undefined); }} className="p-1.5 text-rose-500 hover:scale-110 transition-transform"><Trash2 size={14}/></button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setActiveCameraType('BILL')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all active:scale-95">
+                <Camera size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">Foto</span>
+              </button>
+              <button onClick={() => billFileInputRef.current?.click()} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all active:scale-95">
+                <Upload size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">PDF</span>
+              </button>
+            </div>
           )}
-        </div>
+          <input ref={billFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'BILL')} />
+       </div>
+
+       {!isIncome && paymentMethod === 'ACCOUNT' && (
+         <div className="space-y-1.5 pt-1.5 border-t border-slate-50 dark:border-slate-800">
+            <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><Receipt size={10}/> Comprovante de Pagamento</p>
+            {receiptAttachment ? (
+              <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center justify-between transition-all hover:scale-[1.02]">
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
+                       {receiptAttachment.includes('pdf') ? <FileText size={16} className="text-emerald-500"/> : <img src={receiptAttachment} className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="flex gap-1">
+                       <button onClick={() => openFile(receiptAttachment!)} className="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-md hover:scale-110 transition-transform"><Eye size={10}/></button>
+                       <button onClick={() => shareContent('Recibo', 'Comprovante', receiptAttachment, receiptFileName || 'comprovante.pdf')} className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 rounded-md hover:scale-110 transition-transform"><Share2 size={10}/></button>
+                    </div>
+                 </div>
+                 <button onClick={() => { setReceiptAttachment(undefined); setReceiptFileName(undefined); }} className="p-1.5 text-rose-500 hover:scale-110 transition-transform"><Trash2 size={14}/></button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => setActiveCameraType('RECEIPT')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-all active:scale-95">
+                  <Camera size={16} className="text-slate-400 group-hover:text-emerald-500"/><span className="text-[7px] font-black uppercase text-slate-400">Foto</span>
+                </button>
+                <button onClick={() => receiptFileInputRef.current?.click()} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-all active:scale-95">
+                  <Upload size={16} className="text-slate-400 group-hover:text-emerald-500"/><span className="text-[7px] font-black uppercase text-slate-400">PDF</span>
+                </button>
+              </div>
+            )}
+            <input ref={receiptFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'RECEIPT')} />
+         </div>
+       )}
+      </div>
+      
+      <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white dark:from-slate-900 to-transparent pt-10 flex gap-4">
+          <button 
+            onClick={() => handleSave(false)} 
+            className="flex-1 py-5 bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-lg flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+             <CalendarClock size={20}/> Agendar
+          </button>
+          
+          <button 
+            onClick={() => handleSave(true)} 
+            className={`flex-1 py-5 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] shadow-2xl flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 ${isIncome ? 'bg-emerald-500 shadow-emerald-500/20' : 'bg-primary shadow-primary/20'}`}
+          >
+             <Check size={20}/> {isIncome ? 'Recebido' : 'Confirmar'}
+          </button>
       </div>
 
-      {activeCameraType && <CameraModal onCapture={handleCameraCapture} onClose={() => setActiveCameraType(null)} />}
-      
-      {previewImage && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-slate-950/98 backdrop-blur-3xl" onClick={() => setPreviewImage(null)}>
-           <button className="absolute top-6 right-6 p-4 bg-white/10 text-white rounded-full"><X size={24}/></button>
-           <img src={previewImage} className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl" alt="Preview"/>
-        </div>
+      {activeCameraType && (
+          <CameraModal 
+            onCapture={handleCameraCapture} 
+            onClose={() => setActiveCameraType(null)} 
+          />
       )}
     </div>
   );

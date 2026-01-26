@@ -74,7 +74,7 @@ export const BankAccountManager: React.FC<Props> = ({ accounts, onAdd, onRemove,
         {!showAdd && (
           <button 
             onClick={() => onSelect('all')}
-            className={`w-full p-6 rounded-[2.5rem] border-2 flex items-center justify-between transition-all ${
+            className={`w-full p-6 rounded-[2.5rem] border-2 flex items-center justify-between transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] ${
               selectedId === 'all' 
               ? 'bg-primary border-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' 
               : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-500'
@@ -108,7 +108,7 @@ export const BankAccountManager: React.FC<Props> = ({ accounts, onAdd, onRemove,
                      <button 
                        key={preset.name}
                        onClick={() => setNewAccount({...newAccount, bankName: preset.name, color: preset.color})}
-                       className={`shrink-0 px-4 py-3 rounded-2xl flex items-center gap-2 text-[9px] font-black uppercase transition-all border-2 ${newAccount.bankName === preset.name ? 'border-primary bg-primary text-white' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400'}`}
+                       className={`shrink-0 px-4 py-3 rounded-2xl flex items-center gap-2 text-[9px] font-black uppercase transition-all border-2 active:scale-95 ${newAccount.bankName === preset.name ? 'border-primary bg-primary text-white' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400'}`}
                      >
                        <span className="text-xs">{preset.icon}</span>
                        {preset.name}
@@ -150,7 +150,7 @@ export const BankAccountManager: React.FC<Props> = ({ accounts, onAdd, onRemove,
                 </div>
               </div>
 
-              <button onClick={handleSave} className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">
+              <button onClick={handleSave} className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all hover:scale-105">
                 {editingId ? 'Atualizar Dados' : 'Criar Conta'}
               </button>
             </div>
@@ -165,7 +165,7 @@ export const BankAccountManager: React.FC<Props> = ({ accounts, onAdd, onRemove,
               <div 
                 key={acc.id} 
                 onClick={() => onSelect(acc.id)}
-                className={`relative overflow-hidden p-6 rounded-[2.5rem] border-2 transition-all cursor-pointer group ${
+                className={`relative overflow-hidden p-6 rounded-[2.5rem] border-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] cursor-pointer group ${
                   selectedId === acc.id 
                   ? 'border-primary bg-slate-900 text-white shadow-2xl scale-[1.02]' 
                   : 'border-transparent bg-slate-50 dark:bg-slate-800 text-slate-500'
@@ -184,8 +184,8 @@ export const BankAccountManager: React.FC<Props> = ({ accounts, onAdd, onRemove,
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(acc); }} className="p-2.5 text-primary hover:bg-primary/10 rounded-xl transition-all"><Pencil size={14}/></button>
-                    <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir esta conta?')) onRemove(acc.id); }} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"><Trash2 size={14}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(acc); }} className="p-2.5 text-primary hover:bg-primary/10 rounded-xl transition-all hover:scale-110 active:scale-90"><Pencil size={14}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este conta?')) onRemove(acc.id); }} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all hover:scale-110 active:scale-90"><Trash2 size={14}/></button>
                   </div>
                 </div>
 
@@ -208,7 +208,7 @@ export const BankAccountManager: React.FC<Props> = ({ accounts, onAdd, onRemove,
 
       {!showAdd && (
         <div className="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-white dark:from-slate-900 via-white/80 to-transparent">
-          <button onClick={() => setShowAdd(true)} className="w-full py-5 bg-primary text-white rounded-[2rem] font-black text-[9px] uppercase tracking-[0.3em] shadow-xl flex items-center justify-center gap-3">
+          <button onClick={() => setShowAdd(true)} className="w-full py-5 bg-primary text-white rounded-[2rem] font-black text-[9px] uppercase tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 transition-all hover:scale-105 active:scale-95">
             <Plus size={20} /> Adicionar Nova Conta
           </button>
         </div>

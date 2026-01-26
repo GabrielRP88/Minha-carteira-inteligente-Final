@@ -151,14 +151,14 @@ export const CalendarView: React.FC<Props> = ({
                   onChangeDate(day);
                   setViewMode('DAY_DETAILS');
                 }}
-                className={`aspect-square rounded-2xl flex flex-col justify-between items-center p-1 pt-2 transition-all relative border-2 ${
+                className={`aspect-square rounded-2xl flex flex-col justify-start items-center gap-1 p-1 pt-2 transition-all relative border-2 ${
                   isSelected ? 'bg-primary border-primary text-white shadow-lg scale-110 z-10' : 
                   isToday ? 'border-primary/30 bg-primary/5 text-primary' :
                   'bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
-                <span className="text-xs font-black">{day.getDate()}</span>
-                <div className="flex gap-0.5 justify-center w-full mb-1">
+                <span className="text-xs font-black leading-none">{day.getDate()}</span>
+                <div className="flex gap-0.5 justify-center w-full mt-auto mb-1">
                   {hasTrans && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`}></div>}
                   {hasRem && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/60' : 'bg-rose-500'}`}></div>}
                   {hasNote && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/40' : 'bg-emerald-500'}`}></div>}

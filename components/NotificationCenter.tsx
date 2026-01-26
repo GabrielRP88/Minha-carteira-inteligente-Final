@@ -172,11 +172,11 @@ export const NotificationCenter: React.FC<Props> = ({
   }, [selectedItems, selectedInvoice]);
 
   return (
-    <div className="p-6 md:p-8 h-full flex flex-col bg-white dark:bg-slate-900 relative">
+    <div className="p-6 md:p-8 h-full flex flex-col bg-white dark:bg-slate-900 relative overflow-hidden">
       <AnimatePresence mode="wait">
         {!selectedInvoiceKey ? (
-          <motion.div key="list" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col h-full">
-            <div className="mb-8 flex items-center gap-4">
+          <motion.div key="list" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex flex-col h-full overflow-hidden">
+            <div className="mb-8 flex items-center gap-4 shrink-0">
               <div className="p-3 bg-primary/10 text-primary rounded-2xl shadow-sm"><Bell size={24}/></div>
               <div>
                 <h3 className="text-2xl font-black tracking-tight uppercase leading-none">Notificações</h3>
@@ -184,7 +184,7 @@ export const NotificationCenter: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="relative mb-6">
+            <div className="relative mb-6 shrink-0">
               <div className="flex gap-2.5 p-2 bg-slate-100 dark:bg-slate-800 rounded-[2rem] overflow-x-auto no-scrollbar border border-slate-200/50 dark:border-slate-800 flex-nowrap">
                 {[
                   { id: 'OVERDUE', label: 'Vencidos', icon: <AlertCircle size={14}/>, count: stats.OVERDUE, activeBg: 'bg-rose-500' }, 
@@ -201,7 +201,7 @@ export const NotificationCenter: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className={`flex-1 overflow-y-auto custom-scrollbar pb-10 rounded-[2rem] p-2 transition-colors ${activeFilter === 'OVERDUE' ? 'bg-rose-500/5' : ''}`}>
+            <div className={`flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-10 rounded-[2rem] p-2 transition-colors touch-pan-y overscroll-contain ${activeFilter === 'OVERDUE' ? 'bg-rose-500/5' : ''}`}>
               <div className="space-y-4">
                 {filteredItems.length > 0 ? filteredItems.map((item: any, idx) => {
                   const isLate = item.date < todayStr && !item.isFullyPaid;
@@ -262,13 +262,20 @@ export const NotificationCenter: React.FC<Props> = ({
                       <ChevronRight size={16} className="text-slate-200 group-hover:text-primary transition-all"/>
                     </button>
                   );
-                }) : <div className="p-24 text-center opacity-20 flex flex-col items-center"><CheckCircle size={56} className="mb-4 text-emerald-500" /><p className="font-black text-[11px] uppercase tracking-[0.3em] text-slate-500">Tudo em dia!</p></div>}
+                }) : (
+                  <div className="p-24 text-center opacity-20 flex flex-col items-center">
+                    <CheckCircle size={56} className="mb-4 text-emerald-500" />
+                    <p className="font-black text-[11px] uppercase tracking-[0.3em] text-slate-500">
+                      {activeFilter === 'NEXT_DAYS' ? 'Sem pendências futuras' : 'Tudo em dia!'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
         ) : (
-          <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col h-full">
-            <div className="mb-8 flex items-center justify-between">
+          <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col h-full overflow-hidden">
+            <div className="mb-8 flex items-center justify-between shrink-0">
               <button onClick={() => setSelectedInvoiceKey(null)} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-2xl flex items-center gap-2 hover:text-primary transition-all"><ArrowLeft size={18}/> <span className="text-[10px] font-black uppercase tracking-widest">Voltar</span></button>
               <div className="text-right">
                 <h4 className="text-xl font-black uppercase leading-none mb-1">{selectedInvoice?.card.name}</h4>
@@ -276,7 +283,7 @@ export const NotificationCenter: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className={`rounded-[2.5rem] p-8 mb-8 text-white relative overflow-hidden shadow-2xl transition-colors ${selectedInvoice?.isFullyPaid ? 'bg-emerald-600' : 'bg-slate-900'}`}>
+            <div className={`rounded-[2.5rem] p-8 mb-8 text-white relative overflow-hidden shadow-2xl transition-colors shrink-0 ${selectedInvoice?.isFullyPaid ? 'bg-emerald-600' : 'bg-slate-900'}`}>
                <div className="absolute top-0 right-0 p-6 opacity-10"><ReceiptText size={60}/></div>
                <p className="text-[9px] font-black uppercase opacity-40 mb-2 tracking-[0.3em]">
                   {selectedInvoice?.isFullyPaid ? 'Fatura Liquidada' : (selectedItems.size > 0 ? `Pagamento Selecionado (${selectedItems.size})` : 'Total Desta Fatura')}
@@ -294,9 +301,9 @@ export const NotificationCenter: React.FC<Props> = ({
                </div>
             </div>
 
-            <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-4 mb-4 flex items-center gap-2"><ShoppingBag size={12}/> Detalhes do Ciclo</h5>
+            <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em] ml-4 mb-4 flex items-center gap-2 shrink-0"><ShoppingBag size={12}/> Detalhes do Ciclo</h5>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pb-8 pr-2">
+            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0 space-y-2 pb-8 pr-2 touch-pan-y overscroll-contain">
                {selectedInvoice?.items.sort((a:any,b:any) => b.date.localeCompare(a.date)).map((item: any) => (
                  <div 
                    key={item.id} 
@@ -318,7 +325,7 @@ export const NotificationCenter: React.FC<Props> = ({
                ))}
             </div>
 
-            <div className="pt-6 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-6 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
                {!selectedInvoice?.isFullyPaid && (
                   selectedItems.size > 0 ? (
                     <button onClick={() => { if(selectedInvoice) { onPayInvoice(selectedInvoice.card.id, selectedInvoice.invoiceKey, selectedSum, Array.from(selectedItems)); setSelectedInvoiceKey(null); } }} className="w-full py-5 bg-emerald-500 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.4em] shadow-xl flex items-center justify-center gap-4 active:scale-95 transition-all">

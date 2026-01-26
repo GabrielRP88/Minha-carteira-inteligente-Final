@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Transaction, TransactionType, BankAccount, UserProfile, CreditCard, Reminder, AutoBackupConfig, PeriodType } from './types';
+import { Transaction, TransactionType, BankAccount, UserProfile, CreditCard, Reminder, AutoBackupConfig, PeriodType, FamilyMember } from './types';
 import { TransactionForm } from './components/TransactionForm';
 import { TransactionItem } from './components/TransactionItem';
 import { Calculator } from './components/Calculator';
@@ -26,17 +26,38 @@ import {
   Plus, Sun, Moon, Palette, Menu, CreditCard as CreditCardIcon, ChevronRight, ChevronLeft, X, 
   LayoutGrid, Building2, UserCircle, Shield, Globe, Eye, EyeOff, Calculator as CalcIcon, StickyNote, Bell, Minus, 
   LayoutList, BellRing, ArrowRightLeft, FolderOpen, Check, List, Lock,
-  TrendingUp, AlertCircle, Wallet, AlertTriangle, Calendar, History, Search, CalendarDays, ArrowLeft
+  TrendingUp, AlertCircle, Wallet, AlertTriangle, Calendar, History, Search, CalendarDays, ArrowLeft, Coins
 } from 'lucide-react';
+import { TutorialPanel } from './components/TutorialPanel';
+import { FamilyManager } from './components/FamilyManager';
+import { CurrencyConverter } from './components/CurrencyConverter';
+import { getSmartInsights } from './services/geminiService';
 
 export const APP_ICON_URL = "https://cdn-icons-png.flaticon.com/512/9181/9181081.png";
 
+const DEFAULT_USER: UserProfile = { 
+  id: '0', 
+  name: 'Visitante', 
+  isLocal: true, 
+  notificationsEnabled: true, 
+  notificationSound: 'cash_register' 
+};
+
+// Função de carregamento seguro para evitar tela branca
 const safeLoad = (key: string, defaultValue: any) => {
   try {
     const saved = localStorage.getItem(key);
     if (!saved || saved === "undefined" || saved === "null" || saved === "") return defaultValue;
     return JSON.parse(saved) ?? defaultValue;
   } catch (e) { return defaultValue; }
+};
+
+const safeSave = (key: string, value: any) => {
+  try {
+    localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+  } catch (e) {
+    console.warn(`Failed to save ${key} to localStorage (QuotaExceeded?)`, e);
+  }
 };
 
 const sanitizeTransactions = (data: any[]): Transaction[] => {
@@ -53,7 +74,7 @@ const sanitizeTransactions = (data: any[]): Transaction[] => {
 
 const StandardHeader: React.FC<{ t: any, compact?: boolean }> = ({ t, compact }) => (
   <div className={`flex flex-col items-center text-center ${compact ? 'mb-4' : 'mb-2'}`}>
-    <div className={`${compact ? 'w-20 h-20' : 'w-24 h-24'} bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl flex items-center justify-center p-5 mb-2 border-4 border-primary/5 transition-transform hover:scale-105`}>
+    <div className={`${compact ? 'w-20 h-20' : 'w-24 h-24'} bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl flex items-center justify-center p-5 mb-2 border-4 border-primary/5 transition-transform hover:scale-110 duration-300`}>
       <img src={APP_ICON_URL} alt="Logo" className="w-full h-full object-contain" />
     </div>
     <h1 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-800 dark:text-white">
@@ -66,7 +87,7 @@ const App: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [user, setUser] = useState<UserProfile>({ id: '0', name: 'Visitante', isLocal: true, notificationsEnabled: true, notificationSound: 'cash_register' });
+  const [user, setUser] = useState<UserProfile>(DEFAULT_USER);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -95,14 +116,20 @@ const App: React.FC = () => {
 
   const t = useMemo(() => translations[language] || translations.pt, [language]);
   const todayStr = useMemo(() => getLocalDateStr(), []);
-  const tomorrowDate = new Date();
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrowStr = useMemo(() => getLocalDateStr(tomorrowDate), []);
+  
+  const tomorrowStr = useMemo(() => {
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    return getLocalDateStr(tomorrowDate);
+  }, []);
+  
   const todayDate = useMemo(() => new Date(todayStr + 'T12:00:00'), [todayStr]);
-  const quoteIndex = useMemo(() => getDayOfYearIndex(), []);
+  
+  // Quote State
+  const [quoteIndex, setQuoteIndex] = useState(() => getDayOfYearIndex());
   const dailyQuote = DAILY_QUOTES[quoteIndex];
 
-  // Formatação da data atual por extenso
+  // Date info
   const dateInfo = useMemo(() => {
     const now = new Date();
     return {
@@ -134,7 +161,7 @@ const App: React.FC = () => {
 
   const handleUpdatePin = (newPin: string) => {
     setAppPin(newPin);
-    localStorage.setItem('wallet_app_pin', newPin);
+    safeSave('wallet_app_pin', newPin);
     if (newPin) { setIsLocked(true); setActivePanel(null); }
     else setIsLocked(false);
   };
@@ -156,8 +183,8 @@ const App: React.FC = () => {
       keys.forEach(k => { const val = localStorage.getItem(k); if (val) data[k] = JSON.parse(val); });
       const entry = { id: `auto-${now}`, name: `Auto_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}`, date: new Date().toLocaleDateString('pt-BR'), time: new Date().toLocaleTimeString('pt-BR'), timestamp: now, data: JSON.stringify(data), type: 'AUTO' };
       const existing = JSON.parse(localStorage.getItem('wallet_backups_local_folder') || '[]');
-      localStorage.setItem('wallet_backups_local_folder', JSON.stringify([entry, ...existing].slice(0, 20)));
-      localStorage.setItem('wallet_auto_backup_config', JSON.stringify({ ...config, lastBackup: now }));
+      safeSave('wallet_backups_local_folder', JSON.stringify([entry, ...existing].slice(0, 20)));
+      safeSave('wallet_auto_backup_config', JSON.stringify({ ...config, lastBackup: now }));
     }
   }, []);
 
@@ -167,14 +194,22 @@ const App: React.FC = () => {
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification("Gestão Financeira", { body: `Você tem ${pendingNotificationCount} alertas (Vencidos, Hoje ou Amanhã).`, icon: APP_ICON_URL });
       }
-      try { playNotificationSound(user.notificationSound || 'cash_register'); } catch (e) {}
+      try { 
+        playNotificationSound(user.notificationSound || 'cash_register'); 
+      } catch (e) {
+        console.error("Failed to play notification sound", e);
+      }
     }
   }, [user.notificationsEnabled, user.notificationSound, pendingNotificationCount]);
 
   const loadAllData = useCallback(() => {
     setTransactions(sanitizeTransactions(safeLoad('wallet_transactions', [])));
     setCategories(safeLoad('wallet_categories', DEFAULT_CATEGORIES));
-    setUser(safeLoad('wallet_user', { id: '0', name: 'Visitante', isLocal: true, notificationsEnabled: true, notificationSound: 'cash_register' }));
+    
+    // Merge carregado com defaults para garantir que campos novos (como notificações) existam
+    const loadedUser = safeLoad('wallet_user', DEFAULT_USER);
+    setUser({ ...DEFAULT_USER, ...loadedUser });
+
     setBankAccounts(safeLoad('wallet_bank_accounts', [{ id: 'default-cash', bankName: 'Dinheiro', accountNumber: '---', agency: '---', color: '#10b981', initialBalance: 0, isDefault: true }]));
     setCreditCards(safeLoad('wallet_credit_cards', []));
     setReminders(safeLoad('wallet_reminders', []));
@@ -189,23 +224,31 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (transactions.length > 0 || reminders.length > 0) {
-      const timer = setTimeout(() => { runNotificationScanner(); runAutoBackup(); }, 1000);
+      const timer = setTimeout(() => { 
+        try {
+          runNotificationScanner(); 
+          runAutoBackup(); 
+        } catch(e) {
+          console.error("Scanner error", e);
+        }
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [transactions.length, reminders.length, runNotificationScanner, runAutoBackup]);
 
   useEffect(() => {
-    localStorage.setItem('wallet_transactions', JSON.stringify(transactions));
-    localStorage.setItem('wallet_categories', JSON.stringify(categories));
-    localStorage.setItem('wallet_user', JSON.stringify(user));
-    localStorage.setItem('wallet_bank_accounts', JSON.stringify(bankAccounts));
-    localStorage.setItem('wallet_credit_cards', JSON.stringify(creditCards));
-    localStorage.setItem('wallet_reminders', JSON.stringify(reminders));
-    localStorage.setItem('wallet_daily_notes', JSON.stringify(dailyNotes));
-    localStorage.setItem('wallet_dark', String(isDark));
-    localStorage.setItem('wallet_theme', currentTheme);
-    localStorage.setItem('wallet_balance_hidden', String(isBalanceHidden));
-    localStorage.setItem('wallet_language', language);
+    safeSave('wallet_transactions', transactions);
+    safeSave('wallet_categories', categories);
+    safeSave('wallet_user', user);
+    safeSave('wallet_bank_accounts', bankAccounts);
+    safeSave('wallet_credit_cards', creditCards);
+    safeSave('wallet_reminders', reminders);
+    safeSave('wallet_daily_notes', dailyNotes);
+    safeSave('wallet_dark', String(isDark));
+    safeSave('wallet_theme', currentTheme);
+    safeSave('wallet_balance_hidden', String(isBalanceHidden));
+    safeSave('wallet_language', language);
+    
     document.documentElement.classList.toggle('dark', isDark);
     const themeColor = THEMES.find(th => th.id === currentTheme)?.color || '#6366f1';
     document.documentElement.style.setProperty('--primary-color', themeColor);
@@ -226,17 +269,22 @@ const App: React.FC = () => {
       const totalDebt = ccTrans.filter(t => !t.isPaid).reduce((acc, t) => acc + Number(t.amount), 0);
       let statusLabel = `FATURA ${new Date(viewingYear, viewingMonth).toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase()}`;
       let dueDateDisplay = '';
+      let closingDateDisplay = '';
       let isOverdue = false;
       if (viewCardId !== 'all') {
         const card = creditCards.find(c => c.id === viewCardId);
         if (card) {
           const dueDateStr = `${viewingYear}-${String(viewingMonth + 1).padStart(2, '0')}-${String(card.dueDay).padStart(2, '0')}`;
           dueDateDisplay = new Date(dueDateStr + 'T12:00:00').toLocaleDateString('pt-BR');
+          
+          const closingDateStr = `${viewingYear}-${String(viewingMonth + 1).padStart(2, '0')}-${String(card.closingDay).padStart(2, '0')}`;
+          closingDateDisplay = new Date(closingDateStr + 'T12:00:00').toLocaleDateString('pt-BR');
+
           isOverdue = currentInvoice > 0 && todayStr > dueDateStr;
           if (viewingMonth === todayDate.getMonth() && viewingYear === todayDate.getFullYear()) { if (todayDate.getDate() > card.closingDay) statusLabel = "FATURA FECHADA"; else statusLabel = "FATURA EM ABERTO"; }
         }
       }
-      return { label: statusLabel, mainValue: currentInvoice, subLabel: 'Saldo Devedor Total', subValue: totalDebt, isCredit: true, invoiceKey: filterKey, dueDate: dueDateDisplay, isOverdue };
+      return { label: statusLabel, mainValue: currentInvoice, subLabel: 'Saldo Devedor Total', subValue: totalDebt, isCredit: true, invoiceKey: filterKey, dueDate: dueDateDisplay, closingDate: closingDateDisplay, isOverdue };
     }
     if (viewAccountId === 'all') { const total = bankAccountsWithBalance.reduce((acc, b) => acc + (b.currentBalance || 0), 0); return { label: 'SALDO TODAS AS CONTAS', mainValue: total, isCredit: false }; }
     else { const acc = bankAccountsWithBalance.find(a => a.id === viewAccountId); return { label: `SALDO ${acc?.bankName.toUpperCase()}`, mainValue: acc?.currentBalance || 0, isCredit: false }; }
@@ -260,6 +308,11 @@ const App: React.FC = () => {
         formattedDate.includes(term) ||
         String(t.category || '').toLowerCase().includes(term);
 
+      // Se for data específica (ex: vindo do calendário), ignoramos os filtros de conta/cartão para mostrar tudo
+      if (listPeriod === 'SPECIFIC_DATE') {
+         return matchesSearch && t.date === getLocalDateStr(calendarDate);
+      }
+
       const matchesAccount = viewCardId === null && (viewAccountId === 'all' || t.bankAccountId === viewAccountId);
       const matchesCard = viewCardId !== null && (viewCardId === 'all' || t.cardId === viewCardId);
       
@@ -269,7 +322,6 @@ const App: React.FC = () => {
 
       if (listPeriod === 'DAILY') return t.date === todayStr;
       if (listPeriod === 'NEXT_DAYS') return t.date > todayStr;
-      if (listPeriod === 'SPECIFIC_DATE') return t.date === getLocalDateStr(calendarDate);
       
       const parts = t.date.split('-');
       return parseInt(parts[0]) === viewingYear && (parseInt(parts[1]) - 1) === viewingMonth;
@@ -301,8 +353,28 @@ const App: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleOpenReminderForDate = (date: string) => {
-    setActivePanel('reminders');
+  const handlePrevMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    let newMonth = viewingMonth - 1;
+    let newYear = viewingYear;
+    if (newMonth < 0) {
+      newMonth = 11;
+      newYear--;
+    }
+    setViewingMonth(newMonth);
+    setViewingYear(newYear);
+  };
+
+  const handleNextMonth = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    let newMonth = viewingMonth + 1;
+    let newYear = viewingYear;
+    if (newMonth > 11) {
+      newMonth = 0;
+      newYear++;
+    }
+    setViewingMonth(newMonth);
+    setViewingYear(newYear);
   };
 
   if (appPin && isLocked) {
@@ -322,7 +394,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-10"> 
-          <button onClick={() => setActivePanel('notificationCenter')} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative hover:text-primary transition-all">
+          <button onClick={() => setActivePanel('notificationCenter')} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm relative hover:text-primary hover:scale-110 active:scale-90 transition-all duration-300">
             <Bell size={18}/>
             {pendingNotificationCount > 0 && (
               <span className="absolute top-2 right-2 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center animate-pulse border-2 border-white dark:border-slate-800">
@@ -331,26 +403,26 @@ const App: React.FC = () => {
             )}
           </button>
           
-          <button onClick={() => setActivePanel('themes')} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-primary transition-all">
+          <button onClick={() => setActivePanel('themes')} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-primary hover:scale-110 active:scale-90 transition-all duration-300">
             <Palette size={18}/>
           </button>
           
           <button 
             onClick={() => { if(appPin) setIsLocked(true); else setActivePanel('security'); }} 
-            className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-rose-500 transition-all"
+            className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-rose-500 hover:scale-110 active:scale-90 transition-all duration-300"
           >
             <Lock size={18}/>
           </button>
 
-          <button onClick={() => setActivePanel('language')} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-primary transition-all">
+          <button onClick={() => setActivePanel('language')} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-primary hover:scale-110 active:scale-90 transition-all duration-300">
             <Globe size={18}/>
           </button>
           
-          <button onClick={() => setIsDark(!isDark)} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-primary transition-all">
+          <button onClick={() => setIsDark(!isDark)} className="p-3 bg-white dark:bg-slate-800 text-slate-400 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:text-primary hover:scale-110 active:scale-90 transition-all duration-300">
             {isDark ? <Sun size={18}/> : <Moon size={18}/>}
           </button>
           
-          <button onClick={() => setActivePanel('menu')} className="p-3 bg-primary text-white rounded-2xl shadow-lg hover:scale-105 active:scale-95 transition-all">
+          <button onClick={() => setActivePanel('menu')} className="p-3 bg-primary text-white rounded-2xl shadow-lg hover:scale-110 active:scale-90 transition-all duration-300">
             <Menu size={18}/>
           </button>
         </div>
@@ -358,9 +430,9 @@ const App: React.FC = () => {
         <div className="flex flex-col items-center mb-10 animate-in fade-in slide-in-from-top-2 duration-700">
            <button 
              onClick={() => setActivePanel('calendar')}
-             className="group flex items-center gap-5 hover:scale-105 transition-all p-3 px-6 rounded-[2.5rem] active:scale-95 bg-white dark:bg-slate-800 shadow-2xl shadow-primary/10 border border-slate-100 dark:border-slate-700/50"
+             className="group flex items-center gap-5 hover:scale-105 transition-all duration-300 p-3 px-6 rounded-[2.5rem] active:scale-95 bg-white dark:bg-slate-800 shadow-2xl shadow-primary/10 border border-slate-100 dark:border-slate-700/50"
            >
-             <div className="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center shadow-xl shadow-primary/30 group-hover:rotate-6 transition-all">
+             <div className="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center shadow-xl shadow-primary/30 group-hover:rotate-6 transition-all duration-300">
                <span className="text-3xl font-black">
                  {dateInfo.day}
                </span>
@@ -379,18 +451,22 @@ const App: React.FC = () => {
                  </span>
                </div>
              </div>
-             <ChevronRight size={16} className="text-slate-200 group-hover:text-primary group-hover:translate-x-1 transition-all"/>
+             <ChevronRight size={16} className="text-slate-200 group-hover:text-primary group-hover:translate-x-1 transition-all duration-300"/>
            </button>
 
-           <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-8 text-center max-w-[280px] leading-relaxed italic">
-             "{dailyQuote}"
-           </p>
+           <div className="mt-8 flex items-center justify-center gap-4 w-full max-w-[340px]">
+              <button onClick={(e) => { e.stopPropagation(); setQuoteIndex(prev => (prev - 1 + DAILY_QUOTES.length) % DAILY_QUOTES.length); }} className="p-2 text-slate-300 hover:text-primary transition-colors hover:scale-110 active:scale-90"><ChevronLeft size={18}/></button>
+              <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center leading-relaxed italic flex-1">
+                "{dailyQuote}"
+              </p>
+              <button onClick={(e) => { e.stopPropagation(); setQuoteIndex(prev => (prev + 1) % DAILY_QUOTES.length); }} className="p-2 text-slate-300 hover:text-primary transition-colors hover:scale-110 active:scale-90"><ChevronRight size={18}/></button>
+           </div>
         </div>
 
         {/* CARD DE SALDO */}
         <div 
           onClick={() => viewCardId !== null ? setActivePanel('notificationCenter') : setActivePanel('extrato_mensal')} 
-          className={`bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border p-8 mb-8 relative overflow-hidden transition-all flex flex-col items-center justify-center gap-4 cursor-pointer group active:scale-[0.98] ${
+          className={`bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border p-8 mb-8 relative overflow-hidden transition-all duration-300 flex flex-col items-center justify-center gap-4 cursor-pointer group hover:scale-[1.02] active:scale-[0.98] ${
             balanceDisplayData.isOverdue ? 'border-rose-500 shadow-rose-500/20' : 'border-slate-100 dark:border-slate-700 hover:border-primary/40'
           }`}
         >
@@ -399,7 +475,7 @@ const App: React.FC = () => {
                e.stopPropagation(); 
                setIsBalanceHidden(!isBalanceHidden); 
              }} 
-             className="absolute top-6 right-6 text-slate-300 hover:text-primary p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl z-20"
+             className="absolute top-6 right-6 text-slate-300 hover:text-primary p-2.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl z-20 hover:scale-110 active:scale-90 transition-all duration-300"
            >
              {isBalanceHidden ? <EyeOff size={18}/> : <Eye size={18}/>}
            </button>
@@ -407,15 +483,8 @@ const App: React.FC = () => {
            <div className="w-full text-center relative z-10">
               <div className="flex items-center justify-center gap-4 mb-2">
                 <button 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    let nm = viewingMonth - 1;
-                    let ny = viewingYear; 
-                    if (nm < 0) { nm = 11; ny--; } 
-                    setViewingMonth(nm); 
-                    setViewingYear(ny); 
-                  }} 
-                  className="p-1 text-slate-300 hover:text-primary"
+                  onClick={handlePrevMonth} 
+                  className="p-1 text-slate-300 hover:text-primary hover:scale-110 active:scale-90 transition-all duration-300"
                 >
                   <ChevronLeft size={16}/>
                 </button>
@@ -423,15 +492,8 @@ const App: React.FC = () => {
                   <List size={10} className="text-primary"/> {balanceDisplayData.label}
                 </p>
                 <button 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    let nm = viewingMonth + 1;
-                    let ny = viewingYear; 
-                    if (nm > 11) { nm = 0; ny++; } 
-                    setViewingMonth(nm); 
-                    setViewingYear(ny); 
-                  }} 
-                  className="p-1 text-slate-300 hover:text-primary"
+                  onClick={handleNextMonth} 
+                  className="p-1 text-slate-300 hover:text-primary hover:scale-110 active:scale-90 transition-all duration-300"
                 >
                   <ChevronRight size={16}/>
                 </button>
@@ -443,12 +505,25 @@ const App: React.FC = () => {
                 {isBalanceHidden ? '••••••' : balanceDisplayData.mainValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </h3>
               
-              {balanceDisplayData.dueDate && (
-                <div className="mt-3 flex flex-col items-center gap-1">
-                   <p className={`text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-1.5 ${balanceDisplayData.isOverdue ? 'text-rose-500 animate-pulse' : 'text-slate-400'}`}>
-                     {balanceDisplayData.isOverdue ? <AlertTriangle size={10}/> : <Calendar size={10}/>}
-                     {balanceDisplayData.isOverdue ? 'FATURA ATRASADA - VENCIMENTO:' : 'VENCIMENTO:'} {balanceDisplayData.dueDate}
-                   </p>
+              {(balanceDisplayData.dueDate || (balanceDisplayData as any).closingDate) && (
+                <div className="mt-4 flex items-center justify-center gap-6">
+                   {(balanceDisplayData as any).closingDate && (
+                     <div className="flex flex-col items-center">
+                        <span className="text-[7px] font-black uppercase tracking-widest text-slate-400 mb-0.5 flex items-center gap-1.5"><Calendar size={8}/> Fechamento</span>
+                        <span className="text-xs font-black text-slate-600 dark:text-slate-300">{(balanceDisplayData as any).closingDate}</span>
+                     </div>
+                   )}
+                   {(balanceDisplayData as any).closingDate && balanceDisplayData.dueDate && (
+                     <div className="w-[2px] h-6 bg-slate-100 dark:bg-slate-700 rounded-full"></div>
+                   )}
+                   {balanceDisplayData.dueDate && (
+                     <div className="flex flex-col items-center">
+                        <span className={`text-[7px] font-black uppercase tracking-widest mb-0.5 flex items-center gap-1.5 ${balanceDisplayData.isOverdue ? 'text-rose-500' : 'text-slate-400'}`}>
+                           {balanceDisplayData.isOverdue && <AlertTriangle size={8}/>} Vencimento
+                        </span>
+                        <span className={`text-xs font-black ${balanceDisplayData.isOverdue ? 'text-rose-500' : 'text-slate-600 dark:text-slate-300'}`}>{balanceDisplayData.dueDate}</span>
+                     </div>
+                   )}
                 </div>
               )}
               
@@ -462,18 +537,20 @@ const App: React.FC = () => {
               )}
            </div>
            
-           <div className="flex items-center justify-center gap-4 relative z-10" onClick={e => e.stopPropagation()}>
+           <div className="flex items-center justify-center relative z-10" onClick={e => e.stopPropagation()}>
               <button 
-                onClick={() => { setPreSelectedType(TransactionType.INCOME); setPreSelectedDate(undefined); setEditingTransaction(undefined); setIsModalOpen(true); }} 
-                className="w-12 h-12 bg-emerald-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
+                onClick={() => { 
+                  setPreSelectedType(TransactionType.EXPENSE); 
+                  setPreSelectedDate(undefined); 
+                  setEditingTransaction(undefined); 
+                  setIsModalOpen(true); 
+                }} 
+                className="group flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-[2rem] shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300"
               >
-                <Plus size={24} strokeWidth={4}/>
-              </button>
-              <button 
-                onClick={() => { setPreSelectedType(TransactionType.EXPENSE); setPreSelectedDate(undefined); setEditingTransaction(undefined); setIsModalOpen(true); }} 
-                className="w-12 h-12 bg-rose-500 text-white rounded-2xl shadow-lg flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
-              >
-                <Minus size={24} strokeWidth={4}/>
+                <div className="p-1 bg-white/20 rounded-full">
+                  <Plus size={18} strokeWidth={4}/>
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Nova Movimentação</span>
               </button>
            </div>
         </div>
@@ -482,13 +559,13 @@ const App: React.FC = () => {
            <div className="space-y-3">
               <div className="flex items-center justify-between px-2">
                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Wallet size={12}/> Contas Bancárias</p>
-                 <button onClick={() => setActivePanel('accounts')} className="p-1.5 bg-primary/5 text-primary rounded-lg hover:bg-primary/10 transition-all"><Plus size={14} strokeWidth={3}/></button>
+                 <button onClick={() => setActivePanel('accounts')} className="p-1.5 bg-primary/5 text-primary rounded-lg hover:bg-primary/10 hover:scale-110 active:scale-90 transition-all duration-300"><Plus size={14} strokeWidth={3}/></button>
               </div>
               <div className="overflow-x-auto no-scrollbar py-1">
                 <div className="flex items-center gap-2">
-                   <button onClick={() => { setViewAccountId('all'); setViewCardId(null); }} className={`px-5 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-2 flex items-center gap-2 ${viewAccountId === 'all' && viewCardId === null ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><LayoutGrid size={12}/> Todas as Contas</button>
+                   <button onClick={() => { setViewAccountId('all'); setViewCardId(null); }} className={`px-5 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap border-2 flex items-center gap-2 ${viewAccountId === 'all' && viewCardId === null ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><LayoutGrid size={12}/> Todas as Contas</button>
                    {bankAccounts.map(acc => (
-                     <button key={acc.id} onClick={() => { setViewAccountId(acc.id); setViewCardId(null); }} className={`px-5 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-2 flex items-center gap-3 ${viewAccountId === acc.id && viewCardId === null ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><span className="text-xs">{getBankIcon(acc.bankName)}</span> {acc.bankName}</button>
+                     <button key={acc.id} onClick={() => { setViewAccountId(acc.id); setViewCardId(null); }} className={`px-5 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap border-2 flex items-center gap-3 ${viewAccountId === acc.id && viewCardId === null ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><span className="text-xs">{getBankIcon(acc.bankName)}</span> {acc.bankName}</button>
                    ))}
                 </div>
               </div>
@@ -496,27 +573,28 @@ const App: React.FC = () => {
            <div className="space-y-3">
               <div className="flex items-center justify-between px-2">
                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><CreditCardIcon size={12}/> Cartões de Crédito</p>
-                 <button onClick={() => setActivePanel('cards')} className="p-1.5 bg-blue-500/5 text-blue-600 rounded-lg hover:bg-blue-500/10 transition-all"><Plus size={14} strokeWidth={3}/></button>
+                 <button onClick={() => setActivePanel('cards')} className="p-1.5 bg-blue-500/5 text-blue-600 rounded-lg hover:bg-blue-500/10 hover:scale-110 active:scale-90 transition-all duration-300"><Plus size={14} strokeWidth={3}/></button>
               </div>
               <div className="overflow-x-auto no-scrollbar py-1">
                 <div className="flex items-center gap-2">
-                   <button onClick={() => { setViewCardId('all'); setViewAccountId('all'); }} className={`px-5 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-2 flex items-center gap-2 ${viewCardId === 'all' ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><CreditCardIcon size={12}/> Todos Cartões</button>
+                   <button onClick={() => { setViewCardId('all'); setViewAccountId('all'); }} className={`px-5 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap border-2 flex items-center gap-2 ${viewCardId === 'all' ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><CreditCardIcon size={12}/> Todos Cartões</button>
                    {creditCards.map(card => (
-                     <button key={card.id} onClick={() => { setViewCardId(card.id); setViewAccountId('all'); }} className={`px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap border-2 flex items-center gap-3 ${viewCardId === card.id ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><div className="w-8 h-5 rounded-[3px] shadow-sm border border-black/5" style={{ backgroundColor: card.color }}></div> {card.name}</button>
+                     <button key={card.id} onClick={() => { setViewCardId(card.id); setViewAccountId('all'); }} className={`px-4 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-105 active:scale-95 whitespace-nowrap border-2 flex items-center gap-3 ${viewCardId === card.id ? 'bg-primary border-primary text-white shadow-md' : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-slate-400 hover:border-primary/20'}`}><div className="w-8 h-5 rounded-[3px] shadow-sm border border-black/5" style={{ backgroundColor: card.color }}></div> {card.name}</button>
                    ))}
                 </div>
               </div>
            </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 mb-8">
+        <div className="grid grid-cols-5 gap-2 mb-8">
           {[
             { id: 'calc', icon: <CalcIcon size={16}/>, color: 'bg-amber-500', label: 'Calc' },
             { id: 'reminders', icon: <Bell size={16}/>, color: 'bg-rose-500', label: 'Alertas' },
+            { id: 'converter', icon: <Coins size={16}/>, color: 'bg-sky-500', label: 'Câmbio' },
             { id: 'notes', icon: <StickyNote size={16}/>, color: 'bg-emerald-500', label: 'Notas' },
             { id: 'files', icon: <FolderOpen size={16}/>, color: 'bg-slate-900 dark:bg-slate-600', label: 'Arquivos' }
           ].map(tool => (
-            <button key={tool.id} onClick={() => setActivePanel(tool.id as any)} className="flex flex-col items-center gap-1.5 p-3 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:scale-105 transition-all"><div className={`p-2.5 ${tool.color} text-white rounded-xl`}>{tool.icon}</div><span className="text-[7px] font-black uppercase text-slate-400">{tool.label}</span></button>
+            <button key={tool.id} onClick={() => setActivePanel(tool.id as any)} className="flex flex-col items-center gap-1.5 p-3 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:scale-110 active:scale-90 transition-all duration-300"><div className={`p-2.5 ${tool.color} text-white rounded-xl`}>{tool.icon}</div><span className="text-[7px] font-black uppercase text-slate-400">{tool.label}</span></button>
           ))}
         </div>
 
@@ -536,7 +614,7 @@ const App: React.FC = () => {
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')}
-                  className="absolute inset-y-0 right-4 flex items-center text-slate-300 hover:text-rose-500 p-2"
+                  className="absolute inset-y-0 right-4 flex items-center text-slate-300 hover:text-rose-500 hover:scale-110 active:scale-90 transition-all duration-300 p-2"
                 >
                   <X size={16} />
                 </button>
@@ -562,12 +640,12 @@ const App: React.FC = () => {
                     { id: 'DAILY', label: 'Hoje', icon: <History size={10}/> },
                     { id: 'NEXT_DAYS', label: 'Próx.', icon: <ChevronRight size={10}/> }
                   ].map(p => (
-                    <button key={p.id} onClick={() => setListPeriod(p.id as any)} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${listPeriod === p.id ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{p.icon} {p.label}</button>
+                    <button key={p.id} onClick={() => setListPeriod(p.id as any)} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 flex items-center gap-1.5 hover:scale-105 active:scale-95 ${listPeriod === p.id ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{p.icon} {p.label}</button>
                   ))}
                 </div>
               )}
               {listPeriod === 'SPECIFIC_DATE' && (
-                <button onClick={() => setListPeriod('MONTHLY')} className="px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-slate-900 text-white flex items-center gap-2 shadow-md">
+                <button onClick={() => setListPeriod('MONTHLY')} className="px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-slate-900 text-white flex items-center gap-2 shadow-md hover:scale-105 active:scale-95 transition-all duration-300">
                   <ArrowLeft size={10}/> Ver Tudo
                 </button>
               )}
@@ -589,7 +667,7 @@ const App: React.FC = () => {
           <div className="fixed inset-0 z-[400] flex justify-end">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setActivePanel(null)}/>
             <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className={`relative w-full md:w-[500px] h-full ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'} shadow-2xl flex flex-col overflow-hidden`}>
-              <button onClick={() => setActivePanel(null)} className="absolute top-8 right-8 p-4 bg-slate-100 dark:bg-slate-800 rounded-full z-10 hover:rotate-90 transition-all"><X size={20}/></button>
+              <button onClick={() => setActivePanel(null)} className="absolute top-8 right-8 p-4 bg-slate-100 dark:bg-slate-800 rounded-full z-10 hover:rotate-90 hover:scale-110 active:scale-90 transition-all duration-300"><X size={20}/></button>
               <div className="flex-1 overflow-y-auto custom-scrollbar pt-12">
                 <StandardHeader t={t} compact />
                 {activePanel === 'menu' && (
@@ -600,21 +678,22 @@ const App: React.FC = () => {
                       { id: 'notifications', icon: <BellRing size={20}/>, label: 'Notificações' },
                       { id: 'security', icon: <Shield size={20}/>, label: t.security },
                       { id: 'database', icon: <FolderOpen size={20}/>, label: 'Backup e Dados' },
+                      { id: 'tutorial', icon: <List size={20}/>, label: 'Manual' },
                       { id: 'accounts', icon: <Building2 size={20}/>, label: 'Minhas Contas' },
                       { id: 'cards', icon: <CreditCardIcon size={20}/>, label: 'Meus Cartões' },
                       { id: 'calendar', icon: <CalendarDays size={20}/>, label: 'Calendário' },
                       { id: 'language', icon: <Globe size={20}/>, label: 'Idioma' },
                       { id: 'themes', icon: <Palette size={20}/>, label: 'Temas' }
                     ].map(item => (
-                      <button key={item.id} onClick={() => setActivePanel(item.id as any)} className="w-full p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-between transition-all hover:bg-primary/10 group"><div className="flex items-center gap-6 text-slate-500 group-hover:text-primary">{item.icon}<span className="font-black text-[10px] uppercase tracking-widest">{item.label}</span></div><ChevronRight size={16} className="opacity-20"/></button>
+                      <button key={item.id} onClick={() => setActivePanel(item.id as any)} className="w-full p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-between transition-all duration-300 hover:bg-primary/10 hover:scale-[1.02] active:scale-[0.98] group"><div className="flex items-center gap-6 text-slate-500 group-hover:text-primary">{item.icon}<span className="font-black text-[10px] uppercase tracking-widest">{item.label}</span></div><ChevronRight size={16} className="opacity-20"/></button>
                     ))}
                   </div>
                 )}
                 {activePanel === 'language' && (
                   <div className="p-10 space-y-4 text-center">
-                    <h2 className="text-xl font-black uppercase tracking-widest mb-10">Idioma</h2>
+                    <h2 className="text-xl font-black uppercase tracking-widest mb-10 text-center">Idioma</h2>
                     {Object.entries(translations).map(([key, val]: [any, any]) => (
-                      <button key={key} onClick={() => { setLanguage(key); setActivePanel('menu'); }} className={`w-full p-6 rounded-3xl border-2 transition-all flex items-center justify-between ${language === key ? 'border-primary bg-primary/5' : 'border-slate-50 dark:border-slate-800'}`}><span className="font-black text-[10px] uppercase tracking-widest">{val.flag} {val.appName}</span>{language === key && <Check size={16} className="text-primary"/>}</button>
+                      <button key={key} onClick={() => { setLanguage(key); setActivePanel('menu'); }} className={`w-full p-6 rounded-3xl border-2 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-between ${language === key ? 'border-primary bg-primary/5' : 'border-slate-50 dark:border-slate-800'}`}><span className="font-black text-[10px] uppercase tracking-widest">{val.flag} {val.appName}</span>{language === key && <Check size={16} className="text-primary"/>}</button>
                     ))}
                   </div>
                 )}
@@ -623,7 +702,7 @@ const App: React.FC = () => {
                     <h2 className="text-xl font-black uppercase tracking-widest mb-10 text-center">Temas</h2>
                     <div className="grid grid-cols-2 gap-4">
                       {THEMES.map(th => (
-                        <button key={th.id} onClick={() => { setCurrentTheme(th.id); setActivePanel('menu'); }} className={`p-6 rounded-[2.5rem] border-2 transition-all flex flex-col items-center gap-3 ${currentTheme === th.id ? 'border-primary bg-primary/5 shadow-lg' : 'border-slate-50 dark:border-slate-800'}`}><div className="w-10 h-10 rounded-full shadow-inner" style={{ backgroundColor: th.color }}></div><span className="font-black text-[8px] uppercase tracking-widest">{th.name}</span></button>
+                        <button key={th.id} onClick={() => { setCurrentTheme(th.id); setActivePanel('menu'); }} className={`p-6 rounded-[2.5rem] border-2 transition-all duration-300 hover:scale-105 active:scale-95 flex flex-col items-center gap-3 ${currentTheme === th.id ? 'border-primary bg-primary/5 shadow-lg' : 'border-slate-50 dark:border-slate-800'}`}><div className="w-10 h-10 rounded-full shadow-inner" style={{ backgroundColor: th.color }}></div><span className="font-black text-[8px] uppercase tracking-widest">{th.name}</span></button>
                       ))}
                     </div>
                   </div>
@@ -675,6 +754,8 @@ const App: React.FC = () => {
                     }}
                   />
                 )}
+                {activePanel === 'tutorial' && <TutorialPanel />}
+                {activePanel === 'converter' && <CurrencyConverter />}
               </div>
             </motion.div>
           </div>
@@ -684,7 +765,7 @@ const App: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl" onClick={() => setIsModalOpen(false)}/>
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`relative ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'} w-full max-w-xl rounded-[3rem] p-10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}><TransactionForm initialData={editingTransaction} preDefinedDate={preSelectedDate} fixedType={editingTransaction ? undefined : preSelectedType} onAdd={(list) => { if(editingTransaction) setTransactions(transactions.map(t => t.id === list[0].id ? list[0] : t)); else setTransactions([...transactions, ...list]); setIsModalOpen(false); }} onClose={() => setIsModalOpen(false)} creditCards={creditCards} bankAccounts={bankAccounts} categories={categories} allTransactions={transactions} onAddCategory={c => setCategories([...categories, c])} onRemoveCategory={c => setCategories(categories.filter(x => x !== c))} /></motion.div>
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={`relative ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'} w-full max-w-xl rounded-[3rem] p-6 md:p-10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}><TransactionForm initialData={editingTransaction} preDefinedDate={preSelectedDate} fixedType={editingTransaction ? undefined : preSelectedType} onAdd={(list) => { if(editingTransaction) setTransactions(transactions.map(t => t.id === list[0].id ? list[0] : t)); else setTransactions([...transactions, ...list]); setIsModalOpen(false); }} onClose={() => setIsModalOpen(false)} creditCards={creditCards} bankAccounts={bankAccounts} categories={categories} allTransactions={transactions} onAddCategory={c => setCategories(prev => [...prev, c])} onRemoveCategory={c => setCategories(prev => prev.filter(x => x !== c))} /></motion.div>
         </div>
       )}
     </div>

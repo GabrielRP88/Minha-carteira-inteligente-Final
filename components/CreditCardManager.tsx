@@ -87,7 +87,7 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                      <button 
                        key={b.id}
                        onClick={() => setNewCard({...newCard, brand: b.id})}
-                       className={`shrink-0 px-4 py-3 rounded-2xl flex items-center gap-2 text-[9px] font-black uppercase transition-all border-2 ${newCard.brand === b.id ? 'border-primary bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400'}`}
+                       className={`shrink-0 px-4 py-3 rounded-2xl flex items-center gap-2 text-[9px] font-black uppercase transition-all border-2 active:scale-95 ${newCard.brand === b.id ? 'border-primary bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400'}`}
                      >
                        <span>{b.icon}</span> {b.name}
                      </button>
@@ -108,7 +108,6 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                 <div className="space-y-2">
                   <label className="text-[9px] font-black opacity-30 uppercase ml-2 block">Cor do Cartão</label>
                   <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-2xl">
-                     {/* Fix: Replaced setNewAccount with setNewCard and newAccount with newCard */}
                      <input type="color" value={newCard.color} onChange={e => setNewCard({...newCard, color: e.target.value})} className="w-10 h-10 rounded-xl border-none outline-none cursor-pointer bg-transparent" />
                      <span className="text-[8px] font-bold text-slate-400 uppercase">Selecionar</span>
                   </div>
@@ -138,7 +137,7 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
           return (
             <div key={card.id} className="relative group perspective-1000">
               <div 
-                className="relative h-56 w-full rounded-[2rem] p-8 text-white shadow-2xl overflow-hidden flex flex-col justify-between transition-all duration-500 group-hover:scale-[1.02] cursor-pointer"
+                className="relative h-56 w-full rounded-[2rem] p-8 text-white shadow-2xl overflow-hidden flex flex-col justify-between transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-1 cursor-pointer hover:shadow-2xl"
                 style={{ background: `linear-gradient(135deg, ${card.color} 0%, ${card.color}dd 100%)` }}
               >
                 {/* Efeito de Brilho */}
@@ -152,8 +151,8 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                       <p className="text-[7px] font-bold uppercase tracking-[0.4em] opacity-40">Credit Card</p>
                    </div>
                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(card); }} className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-all"><Pencil size={14}/></button>
-                      <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este cartão?')) onRemove(card.id); }} className="p-2 bg-rose-500/80 rounded-xl hover:bg-rose-500 transition-all"><Trash2 size={14}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(card); }} className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-all hover:scale-110 active:scale-90"><Pencil size={14}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este cartão?')) onRemove(card.id); }} className="p-2 bg-rose-500/80 rounded-xl hover:bg-rose-500 transition-all hover:scale-110 active:scale-90"><Trash2 size={14}/></button>
                    </div>
                 </div>
 
@@ -199,7 +198,7 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
 
       {!showAdd && (
         <div className="absolute bottom-0 left-0 right-0 p-8 pt-12 bg-gradient-to-t from-white dark:from-slate-900 via-white/90 dark:via-slate-900/90 to-transparent z-10">
-          <button onClick={() => setShowAdd(true)} className="w-full py-5 bg-primary text-white rounded-[2rem] font-black text-[9px] uppercase tracking-[0.3em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+          <button onClick={() => setShowAdd(true)} className="w-full py-5 bg-primary text-white rounded-[2rem] font-black text-[9px] uppercase tracking-[0.3em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all hover:scale-105">
             <Plus size={20} /> Novo Cartão de Crédito
           </button>
         </div>
