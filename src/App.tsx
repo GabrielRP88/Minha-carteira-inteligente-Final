@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { Transaction, TransactionType, BankAccount, UserProfile, CreditCard, Reminder, AutoBackupConfig, PeriodType, FamilyMember } from './types';
@@ -82,19 +83,17 @@ const StandardHeader: React.FC<{ t: any, compact?: boolean }> = ({ t, compact })
   </div>
 );
 
-// Componente para Widget Arrastável com Alça Explícita
 const DraggableWidget: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => {
   const controls = useDragControls();
   
   return (
     <Reorder.Item
       value={id}
-      dragListener={false} // Desabilita arraste automático no card inteiro
-      dragControls={controls} // Ativa controle manual
+      dragListener={false}
+      dragControls={controls}
       className="relative" 
       whileDrag={{ scale: 1.02, zIndex: 100, opacity: 0.95 }}
     >
-      {/* Alça de Arraste (Handle) */}
       <div 
         className="absolute -top-3 left-1/2 -translate-x-1/2 z-30 w-16 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none group"
         onPointerDown={(e) => controls.start(e)}
@@ -103,7 +102,6 @@ const DraggableWidget: React.FC<{ id: string; children: React.ReactNode }> = ({ 
            <GripHorizontal size={14} />
         </div>
       </div>
-      
       {children}
     </Reorder.Item>
   );
@@ -492,7 +490,6 @@ const App: React.FC = () => {
                     ))}
                   </div>
                 )}
-                {/* ... outros painéis permanecem iguais ... */}
                 {activePanel === 'themes' && (
                   <div className="p-10 space-y-4">
                     <h2 className="text-xl font-black uppercase mb-10 text-center">Temas</h2>
