@@ -1,328 +1,172 @@
 
 import React from 'react';
-import { 
-  BookOpen, Wallet, CreditCard, Shield, Calendar, LayoutList, Eye, Plus, 
-  CheckCircle, Smartphone, Camera, Receipt, Calculator, StickyNote, Bell, 
-  ArrowRightLeft, FileDown, Search, Database, TrendingUp, TrendingDown,
-  MoreHorizontal, AlertCircle, Lock, Coins
-} from 'lucide-react';
+import { BookOpen, Wallet, CreditCard, Sparkles, Shield, Settings2, Calendar, LayoutList, Eye, Plus, CheckCircle, Smartphone, Camera, Receipt, Calculator, StickyNote, Bell, ArrowRightLeft, Move } from 'lucide-react';
 
 export const TutorialPanel: React.FC = () => {
-  const sections = [
+  const steps = [
     {
-      title: "1. Visão Geral e Privacidade",
-      icon: <LayoutList size={20}/>,
-      content: [
-        {
-          subtitle: "O Painel Principal",
-          text: "Ao abrir o aplicativo, você vê o Card de Saldo Geral. Este valor é a soma de todas as suas contas bancárias mais suas receitas do mês, subtraindo as despesas pagas. Use o ícone de 'Olho' para esconder os valores quando estiver em público.",
-          visual: (
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-sm relative overflow-hidden">
-               <div className="flex justify-between items-start mb-4">
-                  <div className="flex flex-col">
-                    <span className="text-[7px] font-black uppercase text-slate-400 tracking-widest">Saldo Atual</span>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">R$ 1.250,00</span>
-                  </div>
-                  <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl"><Eye size={14} className="text-slate-500"/></div>
-               </div>
-               <div className="flex gap-2">
-                  <div className="px-3 py-1.5 bg-emerald-500/10 rounded-lg flex items-center gap-2">
-                    <TrendingUp size={12} className="text-emerald-500"/>
-                    <span className="text-[8px] font-bold text-emerald-600">Receitas</span>
-                  </div>
-                  <div className="px-3 py-1.5 bg-rose-500/10 rounded-lg flex items-center gap-2">
-                    <TrendingDown size={12} className="text-rose-500"/>
-                    <span className="text-[8px] font-bold text-rose-600">Despesas</span>
-                  </div>
-               </div>
-            </div>
-          )
-        },
-        {
-          subtitle: "Inteligência Artificial",
-          text: "No topo do painel, há um botão de Lâmpada. Ao clicar nele, o Gemini (IA do Google) analisa seus últimos 50 lançamentos e gera 3 dicas personalizadas para você economizar dinheiro.",
-          visual: (
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-2xl text-white shadow-lg">
-               <div className="flex items-center gap-2 mb-2">
-                 <span className="bg-white/20 p-1 rounded-md"><Smartphone size={12}/></span>
-                 <span className="text-[10px] font-black uppercase">Dica Inteligente</span>
-               </div>
-               <p className="text-[9px] font-bold leading-relaxed opacity-90">"Notei que você gastou muito com 'Lazer' este fim de semana. Que tal cozinhar em casa nos próximos dias?"</p>
-            </div>
-          )
-        }
-      ]
+      title: "Visão Geral e Privacidade",
+      desc: "O card principal exibe seu saldo atual. Use o ícone de olho no canto superior direito do card para ocultar seus valores em ambientes públicos.",
+      icon: <Wallet className="text-primary" size={24}/>,
+      bg: "bg-primary/5",
+      preview: (
+        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
+          <div className="flex justify-between items-start mb-2">
+            <span className="text-[7px] font-black uppercase text-slate-400">Saldo Geral</span>
+            <div className="p-1 bg-slate-100 dark:bg-slate-700 rounded-md"><Eye size={10} className="text-primary"/></div>
+          </div>
+          <div className="text-lg font-black tracking-tight">R$ ••••••</div>
+          <div className="flex gap-2 mt-3">
+            <div className="w-6 h-6 bg-emerald-500 rounded-lg flex items-center justify-center"><Plus size={12} className="text-white"/></div>
+            <div className="w-6 h-6 bg-rose-500 rounded-lg flex items-center justify-center"><Plus size={12} className="text-white rotate-45"/></div>
+          </div>
+        </div>
+      )
     },
     {
-      title: "2. Gerenciando Transações",
-      icon: <ArrowRightLeft size={20}/>,
-      content: [
-        {
-          subtitle: "Novo Lançamento",
-          text: "O botão '+' principal abre o formulário. Você pode registrar Receitas, Despesas ou Gastos no Cartão de Crédito. A descrição é opcional! Se não preencher, o app usa a categoria como nome.",
-          visual: (
-            <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-[2rem] border-2 border-dashed border-slate-200 dark:border-slate-700">
-               <div className="flex justify-between mb-4">
-                  <div className="h-8 w-24 bg-emerald-500 rounded-xl flex items-center justify-center text-[8px] text-white font-black uppercase">Receita</div>
-                  <div className="h-8 w-24 bg-rose-500 rounded-xl flex items-center justify-center text-[8px] text-white font-black uppercase opacity-20">Despesa</div>
-               </div>
-               <div className="h-10 bg-white dark:bg-slate-900 rounded-xl mb-2 w-full border border-slate-200 dark:border-slate-700 flex items-center px-4">
-                  <span className="text-xs font-black text-slate-300">R$ 0,00</span>
-               </div>
-               <div className="h-10 bg-white dark:bg-slate-900 rounded-xl w-full border border-slate-200 dark:border-slate-700 flex items-center px-4">
-                  <span className="text-xs font-black text-slate-300">Descrição (Opcional)</span>
-               </div>
-            </div>
-          )
-        },
-        {
-          subtitle: "Agendar vs Confirmar",
-          text: "No rodapé do formulário, existem dois botões. 'Agendar' salva o lançamento como Pendente (ideal para contas futuras). 'Confirmar' salva como Pago/Liquidado (o dinheiro sai da conta na hora).",
-          visual: (
-            <div className="flex gap-2">
-               <div className="flex-1 py-3 bg-slate-200 dark:bg-slate-700 rounded-xl flex flex-col items-center justify-center">
-                  <span className="text-[8px] font-black uppercase text-slate-500">Botão Agendar</span>
-                  <span className="text-[7px] text-slate-400">Fica Pendente</span>
-               </div>
-               <div className="flex-1 py-3 bg-primary text-white rounded-xl flex flex-col items-center justify-center shadow-lg shadow-primary/20">
-                  <span className="text-[8px] font-black uppercase">Botão Confirmar</span>
-                  <span className="text-[7px] opacity-80">Saldo Atualiza</span>
-               </div>
-            </div>
-          )
-        }
-      ]
+      title: "Personalização de Animações",
+      desc: "Deixe o app com a sua cara! Acesse o menu e escolha 'Animações' para selecionar entre 30 efeitos de movimento diferentes para botões e ícones, ajustando velocidade e intensidade.",
+      icon: <Move className="text-emerald-500" size={24}/>,
+      bg: "bg-emerald-500/5",
+      preview: (
+        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center gap-2">
+           <div className="flex gap-2">
+              <div className="w-8 h-8 bg-primary rounded-xl animate-bounce"></div>
+              <div className="w-8 h-8 bg-rose-500 rounded-xl animate-pulse"></div>
+              <div className="w-8 h-8 bg-amber-500 rounded-xl animate-spin"></div>
+           </div>
+           <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest mt-2">Escolha seu estilo</p>
+        </div>
+      )
     },
     {
-      title: "3. Cartões de Crédito Inteligentes",
-      icon: <CreditCard size={20}/>,
-      content: [
-        {
-          subtitle: "Ciclo de Fatura",
-          text: "O app entende datas de corte! Se você comprar no cartão HOJE, e hoje for DEPOIS do dia de fechamento, a compra cairá automaticamente na fatura do MÊS SEGUINTE. Se comprar antes, cai na ATUAL.",
-          visual: (
-            <div className="relative h-24 w-full rounded-2xl bg-gradient-to-br from-indigo-900 to-slate-900 p-4 text-white overflow-hidden shadow-lg">
-               <div className="absolute top-0 right-0 p-2 opacity-10"><CreditCard size={60}/></div>
-               <div className="flex justify-between items-start relative z-10">
-                  <span className="text-[8px] font-black uppercase tracking-widest">Nubank</span>
-                  <div className="flex gap-2">
-                    <div className="flex flex-col items-end">
-                       <span className="text-[6px] font-bold opacity-50 uppercase">Fechamento</span>
-                       <span className="text-[9px] font-black">Dia 05</span>
-                    </div>
-                    <div className="flex flex-col items-end">
-                       <span className="text-[6px] font-bold opacity-50 uppercase">Vencimento</span>
-                       <span className="text-[9px] font-black text-rose-400">Dia 12</span>
-                    </div>
-                  </div>
-               </div>
-               <div className="mt-4 relative z-10">
-                  <span className="text-[7px] font-bold opacity-50 uppercase">Limite Disponível</span>
-                  <span className="text-lg font-black block">R$ 2.450,00</span>
-               </div>
-            </div>
-          )
-        },
-        {
-          subtitle: "Pagamento de Fatura",
-          text: "Na Central de Notificações, quando uma fatura fecha, aparece um card específico para ela. Você pode 'Pagar Fatura Total' ou selecionar itens individuais para pagar parcialmente.",
-          visual: (
-            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border-l-4 border-rose-500 shadow-sm flex justify-between items-center">
-               <div>
-                  <p className="text-[9px] font-black uppercase text-slate-800 dark:text-white">Fatura Nubank</p>
-                  <p className="text-[8px] font-bold text-slate-400">Vence Amanhã</p>
-               </div>
-               <div className="text-right">
-                  <p className="text-[10px] font-black text-rose-500">R$ 850,00</p>
-                  <span className="text-[6px] font-bold bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded uppercase">Aberto</span>
-               </div>
-            </div>
-          )
-        }
-      ]
+      title: "Ferramentas Rápidas",
+      desc: "Abaixo dos seus cartões, você encontra o dock de utilidades: Calculadora (Amarelo), Lembretes (Rosa), Notas (Verde) e Conversor de Moedas (Azul). Toque em qualquer ícone para abrir a ferramenta instantaneamente.",
+      icon: <Settings2 className="text-indigo-500" size={24}/>,
+      bg: "bg-indigo-500/5",
+      preview: (
+        <div className="mt-4 grid grid-cols-4 gap-2">
+           <div className="aspect-square bg-amber-500/10 rounded-xl flex items-center justify-center"><Calculator size={14} className="text-amber-500"/></div>
+           <div className="aspect-square bg-rose-500/10 rounded-xl flex items-center justify-center"><Bell size={14} className="text-rose-500"/></div>
+           <div className="aspect-square bg-emerald-500/10 rounded-xl flex items-center justify-center"><StickyNote size={14} className="text-emerald-500"/></div>
+           <div className="aspect-square bg-blue-500/10 rounded-xl flex items-center justify-center"><ArrowRightLeft size={14} className="text-blue-500"/></div>
+        </div>
+      )
     },
     {
-      title: "4. Calendário e Agenda",
-      icon: <Calendar size={20}/>,
-      content: [
-        {
-          subtitle: "Navegação Temporal",
-          text: "O Calendário permite ver seus gastos no tempo. Dias com pontos AZUIS têm transações. Pontos VERMELHOS são lembretes. Pontos VERDES são notas.",
-          visual: (
-            <div className="grid grid-cols-7 gap-2 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
-               {[10,11,12,13,14,15,16].map((d, i) => (
-                 <div key={d} className={`flex flex-col items-center p-1 rounded-lg ${i === 3 ? 'bg-primary text-white shadow-lg' : ''}`}>
-                    <span className="text-[8px] font-black">{d}</span>
-                    <div className="flex gap-0.5 mt-1">
-                       {i % 2 === 0 && <div className={`w-1 h-1 rounded-full ${i === 3 ? 'bg-white' : 'bg-blue-500'}`}></div>}
-                       {i % 3 === 0 && <div className={`w-1 h-1 rounded-full ${i === 3 ? 'bg-white' : 'bg-rose-500'}`}></div>}
-                    </div>
-                 </div>
-               ))}
-            </div>
-          )
-        },
-        {
-          subtitle: "Filtro por Dia",
-          text: "Ao clicar em um dia específico no calendário, o extrato principal muda para 'Movimentações: DD/MM/AAAA' e mostra apenas o que aconteceu naquele dia.",
-          visual: null
-        }
-      ]
+      title: "Calendário Interativo",
+      desc: "O calendário permite navegar pelo tempo. Ao pressionar uma data específica, o aplicativo filtra automaticamente todas as transações daquele dia no seu extrato principal.",
+      icon: <Calendar className="text-blue-500" size={24}/>,
+      bg: "bg-blue-500/5",
+      preview: (
+        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
+           <div className="grid grid-cols-7 gap-1 text-center">
+              {[12,13,14,15,16,17,18].map(d => (
+                <div key={d} className={`p-1.5 rounded-lg text-[7px] font-black ${d === 15 ? 'bg-primary text-white shadow-lg' : 'bg-slate-50 text-slate-300'}`}>{d}</div>
+              ))}
+           </div>
+           <p className="text-[6px] font-black text-primary uppercase text-center mt-3 tracking-widest">Toque para filtrar o dia</p>
+        </div>
+      )
     },
     {
-      title: "5. Backup e Segurança",
-      icon: <Shield size={20}/>,
-      content: [
-        {
-          subtitle: "Tudo é Offline (Local)",
-          text: "Seus dados ficam salvos EXCLUSIVAMENTE no seu navegador. O app não envia seus dados financeiros para nuvem nenhuma. Isso garante privacidade total.",
-          visual: (
-            <div className="flex items-center gap-3 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
-               <Database size={16} className="text-emerald-600"/>
-               <span className="text-[8px] font-black text-emerald-700 uppercase">Armazenamento 100% Local</span>
-            </div>
-          )
-        },
-        {
-          subtitle: "Gerando Backup",
-          text: "Como os dados são locais, se você limpar o cache ou trocar de celular, PERDE TUDO. Para evitar isso, vá em Ajustes > Backup > Exportar. Isso baixa um arquivo `.json`.",
-          visual: (
-            <div className="flex justify-between items-center bg-slate-100 dark:bg-slate-800 p-3 rounded-xl mt-2">
-               <div className="flex items-center gap-2">
-                  <FileDown size={14} className="text-slate-500"/>
-                  <span className="text-[8px] font-black uppercase text-slate-600 dark:text-slate-300">Backup_Carteira.json</span>
-               </div>
-               <span className="text-[8px] font-bold bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded">Baixar</span>
-            </div>
-          )
-        },
-        {
-          subtitle: "Bloqueio por Senha",
-          text: "Você pode definir um PIN numérico. Sempre que abrir o app ou tentar acessar áreas sensíveis, a senha será exigida.",
-          visual: (
-            <div className="flex justify-center gap-2 my-2">
-               {[1,2,3,4].map(i => <div key={i} className="w-2 h-2 rounded-full bg-slate-800 dark:bg-white"></div>)}
-            </div>
-          )
-        }
-      ]
+      title: "Lançamentos e Recibos",
+      desc: "Clique em qualquer transação no extrato para ver detalhes, anexar comprovantes via câmera ou compartilhar o comprovante de pagamento.",
+      icon: <LayoutList className="text-slate-500" size={24}/>,
+      bg: "bg-slate-500/5",
+      preview: (
+        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
+           <div className="flex items-center gap-2">
+             <div className="w-8 h-8 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center"><CheckCircle size={14}/></div>
+             <div>
+               <p className="text-[8px] font-black uppercase">Supermercado</p>
+               <p className="text-[7px] text-slate-400">Pago • 15/05/2024</p>
+             </div>
+           </div>
+           <div className="text-[9px] font-black text-rose-500">- R$ 150,00</div>
+        </div>
+      )
     },
     {
-      title: "6. Utilitários (Dock)",
-      icon: <Calculator size={20}/>,
-      content: [
-        {
-          subtitle: "Acesso Rápido (Dock)",
-          text: "No centro da tela inicial existem 5 ícones coloridos: Calculadora, Alertas, Câmbio (Novo), Notas e Arquivos.",
-          visual: (
-            <div className="grid grid-cols-3 gap-2 mt-2">
-               <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-amber-500"></div>
-                  <span className="text-[8px] font-bold">Calculadora</span>
-               </div>
-               <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-rose-500"></div>
-                  <span className="text-[8px] font-bold">Alertas</span>
-               </div>
-               <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-sky-500"></div>
-                  <span className="text-[8px] font-bold">Câmbio</span>
-               </div>
-               <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-emerald-500"></div>
-                  <span className="text-[8px] font-bold">Notas</span>
-               </div>
-               <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 rounded bg-slate-800"></div>
-                  <span className="text-[8px] font-bold">Arquivos</span>
-               </div>
-            </div>
-          )
-        },
-        {
-          subtitle: "Conversor de Moedas",
-          text: "Utilize o botão 'Câmbio' para converter valores entre moedas (USD, BRL, EUR, etc). O sistema utiliza fontes confiáveis (Morningstar · Fontes) e atualizações horárias para garantir precisão.",
-          visual: (
-            <div className="flex items-center gap-2 p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl">
-               <Coins size={16} className="text-sky-500"/>
-               <span className="text-[8px] font-black uppercase text-sky-600">Cotação em Tempo Real</span>
-            </div>
-          )
-        },
-        {
-          subtitle: "Arquivos e Fotos",
-          text: "A seção 'Arquivos' organiza todas as fotos de recibos e contas que você anexou. Você pode excluir arquivos antigos para liberar espaço na memória do navegador.",
-          visual: null
-        }
-      ]
+      title: "Câmera e Escaneamento",
+      desc: "Não perca tempo digitando. Ao criar uma saída, você pode fotografar a conta ou o recibo para armazenamento digital seguro.",
+      icon: <Camera className="text-purple-500" size={24}/>,
+      bg: "bg-purple-500/5",
+      preview: (
+        <div className="mt-4 grid grid-cols-2 gap-2">
+           <div className="p-4 bg-primary text-white rounded-2xl flex flex-col items-center gap-2">
+              <Camera size={16}/>
+              <span className="text-[6px] font-black uppercase">Tirar Foto</span>
+           </div>
+           <div className="p-4 bg-slate-800 text-white rounded-2xl flex flex-col items-center gap-2">
+              <Receipt size={16}/>
+              <span className="text-[6px] font-black uppercase">Ver Anexo</span>
+           </div>
+        </div>
+      )
+    },
+    {
+      title: "Segurança por PIN",
+      desc: "Proteja seus dados contra acesso físico não autorizado. Ative o bloqueio por PIN nas configurações de segurança (ícone de escudo).",
+      icon: <Shield className="text-rose-500" size={24}/>,
+      bg: "bg-rose-500/5",
+      preview: (
+        <div className="mt-4 p-4 bg-slate-900 rounded-3xl flex flex-col items-center">
+           <div className="grid grid-cols-3 gap-1 mb-2">
+              {[1,2,3].map(n => <div key={n} className="w-4 h-4 bg-white/10 rounded-md"></div>)}
+           </div>
+           <span className="text-[7px] font-black text-white/40 uppercase tracking-widest">Digite seu código</span>
+        </div>
+      )
     }
   ];
 
   return (
-    <div className="p-8 h-full flex flex-col bg-white dark:bg-slate-900 overflow-y-auto custom-scrollbar">
-      
-      {/* Header do Manual */}
-      <div className="text-center mb-10 shrink-0">
-        <div className="w-20 h-20 bg-primary text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-4 shadow-xl shadow-primary/30 animate-in zoom-in duration-500">
-          <BookOpen size={40}/>
+    <div className="p-8 space-y-8 pt-16">
+      <div className="text-center mb-10">
+        <div className="w-16 h-16 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center mx-auto mb-4 border border-primary/20">
+          <BookOpen size={32}/>
         </div>
-        <h3 className="text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Manual do Usuário</h3>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Guia Completo v3.1</p>
+        <h3 className="text-2xl font-black uppercase tracking-tight">Manual de Instruções</h3>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Domine sua Carteira Inteligente</p>
       </div>
 
-      {/* Lista de Seções */}
-      <div className="space-y-12 pb-20">
-        {sections.map((section, idx) => (
-          <div key={idx} className="animate-in slide-in-from-bottom-4 duration-700" style={{ animationDelay: `${idx * 100}ms` }}>
-            <div className="flex items-center gap-4 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-               <div className="p-3 bg-slate-100 dark:bg-slate-800 rounded-2xl text-slate-600 dark:text-white">
-                 {section.icon}
-               </div>
-               <h4 className="text-xl font-black uppercase tracking-tight text-slate-800 dark:text-white">
-                 {section.title}
-               </h4>
+      <div className="space-y-10">
+        {steps.map((step, idx) => (
+          <div key={idx} className={`p-8 rounded-[3rem] border border-slate-100 dark:border-slate-800 transition-all hover:scale-[1.02] shadow-sm relative overflow-hidden ${step.bg}`}>
+            <div className="absolute top-0 right-0 p-4 opacity-5">
+              {step.icon}
             </div>
-
-            <div className="space-y-8 pl-4 border-l-2 border-slate-100 dark:border-slate-800 ml-5">
-               {section.content.map((item, i) => (
-                 <div key={i} className="relative pl-8">
-                    {/* Marcador da linha do tempo */}
-                    <div className="absolute top-1.5 -left-[5px] w-2.5 h-2.5 rounded-full bg-primary border-4 border-white dark:border-slate-900"></div>
-                    
-                    <h5 className="text-sm font-black uppercase tracking-widest text-primary mb-2">
-                      {item.subtitle}
-                    </h5>
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 leading-relaxed mb-4 text-justify">
-                      {item.text}
-                    </p>
-                    
-                    {/* Visual Mockup (Print) */}
-                    {item.visual && (
-                      <div className="mt-3 mb-6 transform transition-transform hover:scale-[1.02]">
-                         {item.visual}
-                      </div>
-                    )}
-                 </div>
-               ))}
+            <div className="flex items-center gap-5 mb-4 relative z-10">
+               <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">{step.icon}</div>
+               <h4 className="font-black text-sm uppercase tracking-widest">{step.title}</h4>
+            </div>
+            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 leading-relaxed uppercase tracking-tight relative z-10">
+              {step.desc}
+            </p>
+            
+            <div className="mt-6 relative z-10">
+               <p className="text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest mb-3">Visualização:</p>
+               {step.preview}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Pro Tip Footer */}
-      <div className="mt-8 p-8 bg-slate-900 text-white rounded-[3rem] text-center border-4 border-primary/20 shadow-2xl shrink-0">
-         <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 text-white animate-pulse">
-            <AlertCircle size={24}/>
-         </div>
-         <p className="text-[9px] font-black uppercase tracking-[0.4em] mb-4 text-primary">Aviso Importante</p>
-         <p className="text-xs font-bold leading-loose uppercase">
-           Este aplicativo não possui servidor na nuvem. <br/>
-           <span className="text-primary underline">Faça backups regulares</span> se você possui dados importantes.
-           Se você limpar o histórico do navegador, os dados serão perdidos.
+      <div className="p-8 bg-slate-900 text-white rounded-[3rem] text-center mt-12 border-4 border-primary/20">
+         <p className="text-[8px] font-black uppercase tracking-[0.4em] mb-4 text-primary">Dica de Ouro</p>
+         <p className="text-[11px] font-bold leading-relaxed uppercase">
+           Mantenha o backup (arquivo .json) sempre atualizado. Você pode exportá-lo na seção de "Cópia de Segurança" para nunca perder seus dados se trocar de celular!
          </p>
       </div>
-
-      <div className="h-10"></div>
+      
+      <div className="pb-12 text-center">
+        <div className="flex items-center justify-center gap-2 mb-2">
+           <Smartphone size={12} className="text-slate-300"/>
+           <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">App Version 3.2.0 (Build 2024)</span>
+        </div>
+        <p className="text-[7px] font-bold text-slate-200 uppercase tracking-[0.5em]">Minha Carteira Inteligente</p>
+      </div>
     </div>
   );
 };

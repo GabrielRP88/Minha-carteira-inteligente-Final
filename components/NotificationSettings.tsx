@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Bell, Volume2, Music, Check, Smartphone, AlertCircle, Coins, Sparkles, Drum, Waves, GlassWater, BellRing, Zap, History, Wind, Activity, Mic2, Star } from 'lucide-react';
 import { playNotificationSound } from '../utils/audio';
@@ -30,23 +29,32 @@ export const NotificationSettings: React.FC<Props> = ({ user, onUpdate }) => {
   ];
 
   const handleToggleSystemNotifications = async () => {
-    if (!("Notification" in window)) {
-      alert("Este navegador não suporta notificações de desktop");
+    // Se o usuário quer desativar, simplesmente desative.
+    if (user.notificationsEnabled) {
+      onUpdate({ ...user, notificationsEnabled: false });
       return;
     }
 
-    if (Notification.permission === "granted") {
-      onUpdate({ ...user, notificationsEnabled: !user.notificationsEnabled });
+    // Se o usuário quer ativar, verifique e peça permissão.
+    if (!("Notification" in window)) {
+      alert("Este navegador não suporta notificações de desktop.");
+      return;
+    }
+
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission === "granted") {
+      onUpdate({ ...user, notificationsEnabled: true });
+      new Notification("Minha Carteira", { body: "Notificações ativadas com sucesso!" });
     } else {
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        onUpdate({ ...user, notificationsEnabled: true });
-        new Notification("Minha Carteira", { body: "Notificações ativadas com sucesso!" });
-      } else {
-        alert("As permissões de notificação foram negadas. Por favor, ative-as nas configurações do seu navegador.");
-      }
+      alert("As permissões de notificação foram negadas. Por favor, ative-as nas configurações do seu navegador.");
+      onUpdate({ ...user, notificationsEnabled: false }); // Garante que a chave permaneça desligada
     }
   };
+
 
   const handleSelectSound = (soundId: any) => {
     onUpdate({ ...user, notificationSound: soundId });
@@ -67,7 +75,7 @@ export const NotificationSettings: React.FC<Props> = ({ user, onUpdate }) => {
                  <div className="p-3 bg-primary/10 text-primary rounded-2xl"><Smartphone size={20}/></div>
                  <div>
                     <h4 className="font-black text-[10px] uppercase tracking-widest">Notificações Inteligentes</h4>
-                    <p className="text-[8px] font-bold text-slate-400 mt-0.5">Filtro de 3 Dias</p>
+                    <p className="text-[8px] font-bold text-slate-400 mt-0.5">Alertas de pendências</p>
                  </div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -84,7 +92,7 @@ export const NotificationSettings: React.FC<Props> = ({ user, onUpdate }) => {
            <div className="p-4 bg-white dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-start gap-3">
               <AlertCircle size={14} className="text-primary shrink-0 mt-0.5"/>
               <p className="text-[8px] font-bold text-slate-400 leading-normal uppercase">
-                O sistema enviará alertas visuais e sonoros exclusivamente para itens VENCIDOS, de HOJE e de AMANHÃ.
+                O sistema enviará alertas visuais e sonoros para itens vencidos ou com vencimento no dia.
               </p>
            </div>
         </div>
@@ -115,12 +123,6 @@ export const NotificationSettings: React.FC<Props> = ({ user, onUpdate }) => {
               ))}
            </div>
         </div>
-      </div>
-
-      <div className="mt-4 p-6 bg-emerald-500/5 border border-emerald-500/10 rounded-[2rem] text-center shrink-0">
-         <p className="text-[8px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">
-           Sons habilitados para o período de 3 dias
-         </p>
       </div>
     </div>
   );

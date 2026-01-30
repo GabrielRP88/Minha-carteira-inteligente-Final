@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { Camera, X, Check, RotateCcw, AlertCircle, RefreshCw } from 'lucide-react';
+import { Camera, X, Check, RotateCcw, AlertCircle, RefreshCw, FlipHorizontal } from 'lucide-react';
 
 interface Props {
   onCapture: (base64: string) => void;
@@ -16,99 +16,80 @@ export const CameraModal: React.FC<Props> = ({ onCapture, onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
-  // Função para limpar o stream
-  const stopStream = (s: MediaStream | null) => {
-    if (s) {
-      s.getTracks().forEach(track => track.stop());
-    }
-  };
-
   useEffect(() => {
-    let mounted = true;
+    startCamera();
 
-    const startCamera = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      // Verificação básica de suporte
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError("Seu navegador não suporta acesso à câmera ou você não está em uma conexão segura (HTTPS).");
+    // Timeout de segurança para evitar loading infinito
+    const timeout = setTimeout(() => {
+      if (isLoading && !error) {
+        setError("A inicialização da câmera está demorando muito. Certifique-se de que deu permissão.");
         setIsLoading(false);
-        return;
       }
-
-      try {
-        // Para qualquer stream existente antes de tentar um novo
-        stopStream(stream);
-
-        const constraints: MediaStreamConstraints = {
-          video: { 
-            facingMode: facingMode,
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false 
-        };
-
-        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        if (mounted) {
-          setStream(mediaStream);
-          
-          if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
-            
-            // Força o play() e lida com a promessa (necessário para Mobile)
-            const playPromise = videoRef.current.play();
-            if (playPromise !== undefined) {
-              playPromise
-                .then(() => {
-                  if (mounted) setIsLoading(false);
-                })
-                .catch(err => {
-                  console.error("Autoplay preventer:", err);
-                  // Se falhar o autoplay, ainda tentamos mostrar a UI
-                  if (mounted) setIsLoading(false);
-                });
-            }
-          }
-        } else {
-          stopStream(mediaStream);
-        }
-      } catch (err: any) {
-        console.error("Camera Error:", err);
-        if (mounted) {
-          let msg = "Não foi possível acessar a câmera.";
-          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            msg = "Permissão da câmera negada. Por favor, habilite nas configurações do seu navegador.";
-          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-            msg = "Nenhuma câmera encontrada no dispositivo.";
-          } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-            msg = "A câmera está sendo usada por outro aplicativo.";
-          }
-          setError(msg);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    // Pequeno atraso para garantir que o elemento de vídeo esteja montado
-    const timer = setTimeout(startCamera, 300);
+    }, 8000);
 
     return () => {
-      mounted = false;
-      clearTimeout(timer);
-      // O cleanup do stream acontece no useEffect de desmontagem ou na próxima execução
+      clearTimeout(timeout);
+      stopCamera();
     };
   }, [facingMode]);
 
-  // Cleanup final ao fechar o componente
-  useEffect(() => {
-    return () => stopStream(stream);
-  }, [stream]);
+  const startCamera = async () => {
+    setError(null);
+    setIsLoading(true);
+    
+    // Verifica suporte básico
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Seu navegador não suporta acesso à câmera ou você não está em uma conexão segura (HTTPS).");
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Força parada de streams anteriores
+      stopCamera();
+
+      const constraints: MediaStreamConstraints = {
+        video: { 
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false 
+      };
+
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      setStream(mediaStream);
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        // Tenta dar play explicitamente
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.error("Play error:", playErr);
+        }
+        setIsLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Camera error:", err);
+      setError("Não conseguimos acessar sua câmera. Verifique as permissões de privacidade.");
+      setIsLoading(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        track.stop();
+      });
+      setStream(null);
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  };
 
   const toggleCamera = () => {
-    setIsLoading(true);
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
@@ -117,29 +98,21 @@ export const CameraModal: React.FC<Props> = ({ onCapture, onClose }) => {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // Ajusta o canvas para a resolução real do vídeo
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      // Usa dimensões reais do vídeo
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
       
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Espelhar apenas se estiver usando a câmera frontal
+        // Se for câmera frontal, espelha a imagem capturada também
         if (facingMode === 'user') {
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
         }
-        
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        try {
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          setCapturedImage(dataUrl);
-          // Paramos o stream para economizar energia após a captura bem-sucedida
-          stopStream(stream);
-        } catch (e) {
-          console.error("Capture Error:", e);
-          setError("Erro ao processar a foto capturada.");
-        }
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        setCapturedImage(dataUrl);
+        stopCamera();
       }
     }
   };
@@ -147,123 +120,107 @@ export const CameraModal: React.FC<Props> = ({ onCapture, onClose }) => {
   const handleConfirm = () => {
     if (capturedImage) {
       onCapture(capturedImage);
+      onClose();
     }
   };
 
   const handleReset = () => {
     setCapturedImage(null);
-    setIsLoading(true);
-    // O useEffect do facingMode será disparado ou podemos forçar a reinicialização
-    setFacingMode(facingMode); 
+    startCamera();
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      {/* Botão Fechar */}
-      <button 
-        onClick={onClose} 
-        className="absolute top-6 right-6 z-[1010] p-4 bg-white/10 text-white rounded-full hover:bg-white/20 backdrop-blur-md transition-all active:scale-90"
-      >
-        <X size={24} />
-      </button>
+    <div className="fixed inset-0 z-[200] bg-slate-950 flex flex-col items-center justify-center p-4">
+      <div className="absolute top-8 right-8 z-[210]">
+        <button onClick={onClose} className="p-4 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all backdrop-blur-md">
+          <X size={24} />
+        </button>
+      </div>
 
-      <div className="relative w-full max-w-lg aspect-[3/4] sm:aspect-[9/16] bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/10 flex items-center justify-center">
-        
-        {/* Loading State */}
-        {isLoading && !capturedImage && !error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 bg-slate-900 z-20">
+      <div className="w-full max-w-xl aspect-[3/4] bg-slate-900 rounded-[3rem] overflow-hidden relative shadow-2xl border border-white/5">
+        {isLoading && !error && !capturedImage && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40">
             <RefreshCw size={40} className="animate-spin mb-4" />
-            <p className="text-[10px] font-black uppercase tracking-widest">Iniciando Câmera...</p>
+            <p className="text-[10px] font-black uppercase tracking-widest">Aguardando Lente...</p>
           </div>
         )}
 
-        {/* Error State */}
-        {error && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8 text-center bg-slate-900 z-30">
-            <div className="w-16 h-16 bg-rose-500/20 text-rose-500 rounded-2xl flex items-center justify-center mb-6">
+        {error ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8 text-center">
+            <div className="w-16 h-16 bg-rose-500/20 text-rose-500 rounded-3xl flex items-center justify-center mb-6">
               <AlertCircle size={32} />
             </div>
-            <h3 className="text-xl font-black mb-2">Ops! Algo deu errado</h3>
-            <p className="font-medium opacity-60 text-sm mb-8 leading-relaxed">{error}</p>
+            <h3 className="text-xl font-black mb-3">Acesso Negado</h3>
+            <p className="font-bold opacity-60 text-sm mb-8 leading-relaxed">{error}</p>
             <button 
-              onClick={onClose}
-              className="px-8 py-3 bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-700 transition-all"
+              onClick={startCamera}
+              className="px-10 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all"
             >
-              Voltar
+              Tentar Novamente
             </button>
           </div>
-        )}
-
-        {capturedImage ? (
-          <img 
-            src={capturedImage} 
-            className="w-full h-full object-cover animate-in zoom-in-95 duration-300" 
-            alt="Captura" 
-          />
+        ) : capturedImage ? (
+          <img src={capturedImage} className="w-full h-full object-cover animate-in fade-in duration-300" alt="Captured" />
         ) : (
           <video 
             ref={videoRef} 
             autoPlay 
             playsInline 
             muted
-            className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
             style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+            className="w-full h-full object-cover"
           />
         )}
 
-        {/* Guia Visual */}
         {!capturedImage && !error && !isLoading && (
-          <div className="absolute inset-0 pointer-events-none z-10">
-             <div className="absolute inset-8 border-2 border-white/20 rounded-3xl opacity-50">
-                <div className="absolute top-[-2px] left-[-2px] w-6 h-6 border-t-4 border-l-4 border-white rounded-tl-lg"></div>
-                <div className="absolute top-[-2px] right-[-2px] w-6 h-6 border-t-4 border-r-4 border-white rounded-tr-lg"></div>
-                <div className="absolute bottom-[-2px] left-[-2px] w-6 h-6 border-b-4 border-l-4 border-white rounded-bl-lg"></div>
-                <div className="absolute bottom-[-2px] right-[-2px] w-6 h-6 border-b-4 border-r-4 border-white rounded-br-lg"></div>
+          <div className="absolute inset-10 border-2 border-white/20 rounded-3xl pointer-events-none flex flex-col items-center justify-center">
+             <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-white/5"></div>
+             <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-white/5"></div>
+             <div className="mt-auto mb-6">
+                <span className="text-[8px] font-black uppercase text-white/30 tracking-[0.5em]">Capture seu Documento</span>
              </div>
           </div>
         )}
       </div>
 
-      {/* Controles Inferiores */}
-      <div className="mt-8 flex items-center justify-between w-full max-w-lg px-10">
-        {!capturedImage && !error && (
+      <div className="mt-12 flex items-center gap-8">
+        {!capturedImage && !error && !isLoading && (
           <>
             <button 
               onClick={toggleCamera}
-              disabled={isLoading}
-              className="p-4 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all backdrop-blur-md active:scale-90 shadow-lg border border-white/5 disabled:opacity-50"
+              className="p-5 bg-white/10 text-white rounded-full hover:bg-white/20 transition-all backdrop-blur-md active:scale-90"
               title="Trocar Câmera"
             >
-              <RefreshCw size={24} className={isLoading ? 'animate-spin' : ''} />
+              <FlipHorizontal size={24} />
             </button>
 
             <button 
               onClick={takePhoto}
-              disabled={isLoading}
-              className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.4)] hover:scale-105 active:scale-95 transition-all border-[6px] border-slate-900 ring-4 ring-white disabled:opacity-50"
+              className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-90 transition-all border-[8px] border-white/10"
             >
-              <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                 <Camera className="text-slate-900" size={24} />
+              <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center">
+                 <Camera className="text-white" size={28} />
               </div>
             </button>
 
-            <div className="w-[56px] h-[56px]"></div>
+            {/* Div para manter o equilíbrio visual do botão de troca */}
+            <div className="w-[64px]"></div>
           </>
         )}
 
         {capturedImage && (
-          <div className="flex gap-4 w-full animate-in slide-in-from-bottom-4">
+          <div className="flex gap-4 animate-in slide-in-from-bottom-4">
             <button 
               onClick={handleReset}
-              className="flex-1 py-5 bg-slate-800 text-white rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-700 active:scale-95"
+              className="px-10 py-5 bg-slate-800 text-white rounded-3xl flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-slate-700"
             >
-              <RotateCcw size={16} /> Repetir
+              <RotateCcw size={18} /> Repetir Foto
             </button>
             <button 
               onClick={handleConfirm}
-              className="flex-1 py-5 bg-emerald-500 text-white rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-emerald-600 active:scale-95 shadow-lg shadow-emerald-500/20"
+              className="px-10 py-5 bg-emerald-500 text-white rounded-3xl flex items-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all hover:bg-emerald-600 shadow-xl shadow-emerald-500/20"
             >
-              <Check size={16} /> Confirmar
+              <Check size={18} /> Usar esta Foto
             </button>
           </div>
         )}

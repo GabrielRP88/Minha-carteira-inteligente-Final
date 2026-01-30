@@ -1,4 +1,5 @@
 
+
 export const translations: any = {
   pt: { flag: "🇧🇷", appName: "Minha Carteira", smart: "Inteligente", totalBalance: "Saldo Geral", noTransactions: "Nada por aqui hoje", profile: "Meu Perfil", security: "Segurança", accounts: "Contas", cards: "Cartões" },
   en: { flag: "🇺🇸", appName: "My Wallet", smart: "Smart", totalBalance: "Total Balance", noTransactions: "Nothing here today", profile: "Profile", security: "Security", accounts: "Accounts", cards: "Cards" },
@@ -21,5 +22,3 @@ export const translations: any = {
   vi: { flag: "🇻🇳", appName: "Ví của tôi", smart: "Thông minh", totalBalance: "Tổng số dư", noTransactions: "Không có gì ở đây hôm nay", profile: "Hồ sơ", security: "Bảo mật", accounts: "Tài khoản", cards: "Thẻ" },
   pt_pt: { flag: "🇵🇹", appName: "Minha Carteira", smart: "Inteligente", totalBalance: "Saldo Geral", noTransactions: "Nada por aqui hoje", profile: "Perfil", security: "Segurança", accounts: "Contas", cards: "Cartões" }
 };
-
-export type Language = string;

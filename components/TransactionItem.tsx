@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useMemo } from 'react';
 import { Transaction, TransactionType, BankAccount } from '../types';
 import { 
@@ -31,8 +30,11 @@ export const TransactionItem: React.FC<Props> = ({
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
+  // Proteção contra objeto inválido
+  if (!transaction || !transaction.id) return null;
+
   const isNegative = transaction.type !== TransactionType.INCOME;
-  const isOverdue = !transaction.isPaid && todayStr && transaction.date < todayStr;
+  const isOverdue = !transaction.isPaid && todayStr && transaction.date && transaction.date < todayStr;
   const isToday = !transaction.isPaid && todayStr && transaction.date === todayStr;
   
   const accountInfo = useMemo(() => {
@@ -110,10 +112,7 @@ export const TransactionItem: React.FC<Props> = ({
 
   return (
     <div className={`border-b border-slate-50 dark:border-slate-800 last:border-0 ${isOverdue ? 'bg-rose-500/[0.04]' : isToday ? 'bg-amber-500/[0.02]' : ''}`}>
-      <div 
-        onClick={() => { setPaymentFlow('DETAILS'); setIsDetailModalOpen(true); }} 
-        className="flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all duration-200 cursor-pointer group hover:scale-[1.01] active:scale-[0.99]"
-      >
+      <div onClick={() => { setPaymentFlow('DETAILS'); setIsDetailModalOpen(true); }} className="flex items-center justify-between p-5 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all cursor-pointer group">
         <div className="flex items-center gap-4">
           <div className={`p-2.5 rounded-xl transition-all ${
             transaction.isPaid ? 'bg-emerald-500/10 text-emerald-500' : 
@@ -129,7 +128,7 @@ export const TransactionItem: React.FC<Props> = ({
                {showAccountInfo && accountInfo && <span className="text-[7px] font-black px-1.5 py-0.5 rounded uppercase border" style={{ color: accountInfo.color, borderColor: `${accountInfo.color}30` }}>{accountInfo.bankName}</span>}
                {isOverdue && <span className="text-[6px] font-black bg-rose-500 text-white px-1 py-0.5 rounded uppercase">Vencido</span>}
             </div>
-            <span className="font-bold text-sm text-slate-700 dark:text-white group-hover:text-primary transition-colors">{transaction.description}</span>
+            <span className="font-bold text-sm text-slate-700 dark:text-white group-hover:text-primary transition-colors">{transaction.description || 'Sem descrição'}</span>
             <span className="text-[8px] font-bold text-slate-300 uppercase">{transaction.date ? new Date(transaction.date + 'T12:00:00').toLocaleDateString('pt-BR') : '---'}</span>
           </div>
         </div>
@@ -144,7 +143,7 @@ export const TransactionItem: React.FC<Props> = ({
           <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[3rem] p-8 shadow-2xl flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center mb-6">
               <h4 className="text-lg font-black uppercase tracking-tight">Detalhes do Lançamento</h4>
-              <button onClick={() => setIsDetailModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:scale-110 active:scale-90 transition-all duration-300"><X size={18}/></button>
+              <button onClick={() => setIsDetailModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><X size={18}/></button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
@@ -157,17 +156,17 @@ export const TransactionItem: React.FC<Props> = ({
 
               {paymentFlow === 'DETAILS' ? (
                 <>
-                  {/* SEÇÃO CÓDIGO DE BARRAS - POSICIONADA ACIMA DOS BOTÕES */}
+                  {/* SEÇÃO CÓDIGO DE BARRAS */}
                   {isNegative && transaction.barcode && (
                     <div className="mb-6 space-y-2">
                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><Barcode size={12}/> Código de Barras</p>
                        <div className="p-5 bg-slate-50 dark:bg-slate-800 rounded-[2rem] border border-slate-100 dark:border-slate-800">
                           <p className="font-mono text-[9px] break-all text-center mb-4 text-slate-600 dark:text-slate-300">{transaction.barcode}</p>
                           <div className="grid grid-cols-2 gap-2">
-                            <button onClick={handleCopyBarcode} className={`py-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105 active:scale-95 ${copied ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-slate-700 text-primary border border-primary/10 shadow-sm'}`}>
+                            <button onClick={handleCopyBarcode} className={`py-3 rounded-xl font-black text-[8px] uppercase flex items-center justify-center gap-2 transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-slate-700 text-primary border border-primary/10 shadow-sm'}`}>
                                {copied ? <Check size={12}/> : <Copy size={12}/>} {copied ? 'Copiado' : 'Copiar'}
                             </button>
-                            <button onClick={() => shareContent('Código de Barras', transaction.barcode || '')} className="py-3 bg-white dark:bg-slate-700 text-slate-500 rounded-xl font-black text-[8px] uppercase border border-slate-200 dark:border-slate-600 flex items-center justify-center gap-2 hover:scale-105 active:scale-95 transition-all duration-300">
+                            <button onClick={() => shareContent('Código de Barras', transaction.barcode || '')} className="py-3 bg-white dark:bg-slate-700 text-slate-500 rounded-xl font-black text-[8px] uppercase border border-slate-200 dark:border-slate-600 flex items-center justify-center gap-2">
                                <Share2 size={12}/> Compartilhar
                             </button>
                           </div>
@@ -175,36 +174,35 @@ export const TransactionItem: React.FC<Props> = ({
                     </div>
                   )}
 
-                  {/* SEÇÃO ANEXO DA CONTA / COMPROVANTE AGENDADO - POSICIONADA ACIMA DOS BOTÕES */}
-                  {transaction.billAttachment && (
+                  {/* SEÇÃO ANEXO DA CONTA / COMPROVANTE */}
+                  {(transaction.billAttachment || transaction.receiptAttachment) && (
                     <div className="mb-6 space-y-2">
-                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><FileText size={12}/> {isNegative ? 'Documento da Conta' : 'Anexo de Recebimento'}</p>
+                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2"><FileText size={12}/> Documentos</p>
                        <div className="p-4 bg-primary/5 border border-primary/10 rounded-[2rem] flex items-center justify-between">
                           <div className="flex items-center gap-3">
                              <div className="w-10 h-10 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center shadow-sm">
-                                {transaction.billAttachment.includes('pdf') ? <FileText size={20} className="text-primary"/> : <img src={transaction.billAttachment} className="w-full h-full object-cover rounded-xl" />}
+                                <FileText size={20} className="text-primary"/>
                              </div>
                              <div>
-                                <p className="text-[8px] font-black uppercase text-slate-500 truncate w-32">{transaction.billFileName || 'arquivo'}</p>
-                                <button onClick={() => openFile(transaction.billAttachment!)} className="text-[8px] font-black text-primary uppercase flex items-center gap-1 mt-0.5 hover:underline"><Eye size={10}/> Visualizar</button>
+                                <p className="text-[8px] font-black uppercase text-slate-500 truncate w-32">
+                                  {transaction.billFileName || transaction.receiptFileName || 'Anexo'}
+                                </p>
+                                <button onClick={() => openFile((transaction.billAttachment || transaction.receiptAttachment)!)} className="text-[8px] font-black text-primary uppercase flex items-center gap-1 mt-0.5 hover:underline"><Eye size={10}/> Visualizar</button>
                              </div>
                           </div>
-                          <button onClick={() => shareContent('Arquivo', 'Documento anexado', transaction.billAttachment, transaction.billFileName || 'arquivo')} className="p-3 bg-white dark:bg-slate-700 text-primary rounded-full shadow-sm hover:scale-110 active:scale-90 transition-all duration-300"><Share2 size={14}/></button>
                        </div>
                     </div>
                   )}
 
-                  {/* BOTÕES DE EDIÇÃO E EXCLUSÃO - LOGO ABAIXO DOS DOCUMENTOS */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
-                    <button onClick={() => { setIsDetailModalOpen(false); onEdit(transaction); }} className="py-4 bg-blue-600/10 text-blue-600 rounded-2xl font-black text-[9px] uppercase flex items-center justify-center gap-2 border border-blue-600/10 hover:bg-blue-600 hover:text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"><Pencil size={14}/> Editar</button>
-                    <button onClick={() => { if(confirm('Excluir este lançamento permanentemente?')) { onDelete(transaction.id); setIsDetailModalOpen(false); } }} className="py-4 bg-rose-500/10 text-rose-500 rounded-2xl font-black text-[9px] uppercase flex items-center justify-center gap-2 border border-rose-500/10 hover:bg-rose-500 hover:text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"><Trash2 size={14}/> Excluir</button>
+                    <button onClick={() => { setIsDetailModalOpen(false); onEdit(transaction); }} className="py-4 bg-blue-600/10 text-blue-600 rounded-2xl font-black text-[9px] uppercase flex items-center justify-center gap-2 border border-blue-600/10 hover:bg-blue-600 hover:text-white transition-all"><Pencil size={14}/> Editar</button>
+                    <button onClick={() => { if(confirm('Excluir este lançamento permanentemente?')) { onDelete(transaction.id); setIsDetailModalOpen(false); } }} className="py-4 bg-rose-500/10 text-rose-500 rounded-2xl font-black text-[9px] uppercase flex items-center justify-center gap-2 border border-rose-500/10 hover:bg-rose-500 hover:text-white transition-all"><Trash2 size={14}/> Excluir</button>
                   </div>
 
-                  {/* BOTÃO PRINCIPAL DE AÇÃO AO FINAL (PAGAR / RECEBER) */}
                   {!transaction.isPaid && (
                     <button 
                       onClick={() => setPaymentFlow('PAY_OPTIONS')} 
-                      className={`w-full py-6 mb-4 rounded-[2rem] font-black text-sm uppercase tracking-[0.3em] shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 ${isNegative ? 'bg-primary text-white shadow-primary/20' : 'bg-emerald-500 text-white shadow-emerald-500/20'}`}
+                      className={`w-full py-6 mb-4 rounded-[2rem] font-black text-sm uppercase tracking-[0.3em] shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${isNegative ? 'bg-primary text-white shadow-primary/20' : 'bg-emerald-500 text-white shadow-emerald-500/20'}`}
                     >
                       {isNegative ? 'PAGAR AGORA' : 'RECEBER AGORA'} <ArrowRight size={20}/>
                     </button>
@@ -213,12 +211,12 @@ export const TransactionItem: React.FC<Props> = ({
               ) : (
                 <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-300 pb-6">
                    <div className="flex items-center gap-3 mb-6">
-                      <button onClick={() => setPaymentFlow('DETAILS')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full hover:scale-110 active:scale-90 transition-all duration-300"><ArrowRight size={16} className="rotate-180"/></button>
-                      <h5 className="font-black text-sm uppercase">Como deseja {isNegative ? 'pagar' : 'receber'}?</h5>
+                      <button onClick={() => setPaymentFlow('DETAILS')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ArrowRight size={16} className="rotate-180"/></button>
+                      <h5 className="font-black text-sm uppercase">Opções de {isNegative ? 'pagamento' : 'recebimento'}</h5>
                    </div>
                    
                    <div className="grid grid-cols-1 gap-3">
-                      <button onClick={() => setIsCameraOpen(true)} className="w-full p-6 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] flex items-center justify-between group hover:border-primary transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+                      <button onClick={() => setIsCameraOpen(true)} className="w-full p-6 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] flex items-center justify-between group hover:border-primary transition-all">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-primary text-white rounded-xl"><Camera size={20}/></div>
                           <div className="text-left">
@@ -229,7 +227,7 @@ export const TransactionItem: React.FC<Props> = ({
                         <ChevronRight size={16} className="text-slate-300"/>
                       </button>
 
-                      <button onClick={() => fileInputRef.current?.click()} className="w-full p-6 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] flex items-center justify-between group hover:border-primary transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+                      <button onClick={() => fileInputRef.current?.click()} className="w-full p-6 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-[2rem] flex items-center justify-between group hover:border-primary transition-all">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-primary text-white rounded-xl"><Upload size={20}/></div>
                           <div className="text-left">
@@ -240,12 +238,12 @@ export const TransactionItem: React.FC<Props> = ({
                         <ChevronRight size={16} className="text-slate-300"/>
                       </button>
 
-                      <button onClick={() => handleConfirmAction()} className="w-full p-6 bg-white dark:bg-slate-900 border-2 border-emerald-500/20 rounded-[2rem] flex items-center justify-between group hover:bg-emerald-500/5 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]">
+                      <button onClick={() => handleConfirmAction()} className="w-full p-6 bg-white dark:bg-slate-900 border-2 border-emerald-500/20 rounded-[2rem] flex items-center justify-between group hover:bg-emerald-500/5 transition-all">
                         <div className="flex items-center gap-4">
                           <div className="p-3 bg-emerald-500 text-white rounded-xl"><CheckCircle size={20}/></div>
                           <div className="text-left">
-                            <p className="text-[10px] font-black uppercase text-emerald-600">{isNegative ? 'Pagar sem Comprovante' : 'Confirmar sem Comprovante'}</p>
-                            <p className="text-[8px] font-bold text-slate-400">Lançar valor imediatamente</p>
+                            <p className="text-[10px] font-black uppercase text-emerald-600">Confirmar sem Comprovante</p>
+                            <p className="text-[8px] font-bold text-slate-400">Lançar imediatamente</p>
                           </div>
                         </div>
                         <Check size={16} className="text-emerald-500"/>
@@ -263,7 +261,7 @@ export const TransactionItem: React.FC<Props> = ({
       
       {previewImage && (
         <div className="fixed inset-0 z-[700] flex items-center justify-center p-4 bg-slate-950/98 backdrop-blur-3xl" onClick={() => setPreviewImage(null)}>
-           <button className="absolute top-8 right-8 p-5 bg-white/10 text-white rounded-full hover:scale-110 active:scale-90 transition-all duration-300"><X size={28}/></button>
+           <button className="absolute top-8 right-8 p-5 bg-white/10 text-white rounded-full"><X size={28}/></button>
            <img src={previewImage} className="max-w-full max-h-[85vh] object-contain rounded-[2rem] shadow-2xl" alt="Preview"/>
         </div>
       )}

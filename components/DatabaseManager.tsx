@@ -5,7 +5,7 @@ import {
   FileUp, AlertCircle, Save, Share2, Download, 
   ChevronRight, Check, HardDrive, FileJson,
   Loader2, CheckCircle, Clock, FileDown, ShieldCheck, Zap,
-  ExternalLink, ArrowUpRight
+  ExternalLink, ArrowUpRight, FolderArchive
 } from 'lucide-react';
 import { AutoBackupConfig } from '../types';
 
@@ -20,6 +20,7 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showRestoreList, setShowRestoreList] = useState(false);
   
+  // LISTA COMPLETA DE CHAVES DO SISTEMA ATUALIZADA
   const ALL_STORAGE_KEYS = [
     'wallet_transactions', 
     'wallet_bank_accounts', 
@@ -32,8 +33,12 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
     'wallet_theme',
     'wallet_balance_hidden',
     'wallet_app_pin',
-    'wallet_notes',
-    'wallet_auto_backup_config'
+    'wallet_notes', // Bloco de notas rápido
+    'wallet_auto_backup_config',
+    'wallet_birthdays', // Adicionado
+    'wallet_daily_notes', // Adicionado (Notas do calendário)
+    'wallet_checklist_items', // Adicionado
+    'wallet_checklist_title' // Adicionado
   ];
 
   const [autoConfig, setAutoConfig] = useState<AutoBackupConfig>(() => {
@@ -103,7 +108,7 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
   const handleExportToFile = () => {
     const dataStr = getFullBackupData();
     const now = new Date();
-    const filename = `Backup_Carteira_${now.toLocaleDateString('pt-BR').replace(/\//g, '-')}.json`;
+    const filename = `Backup_Carteira_Completo_${now.toLocaleDateString('pt-BR').replace(/\//g, '-')}.json`;
     downloadFile(dataStr, filename);
   };
 
@@ -111,10 +116,14 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
     if (!pendingData) return;
     try {
       const data = JSON.parse(pendingData);
+      // Limpa dados antigos antes de restaurar para evitar conflitos de chaves obsoletas
       ALL_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+      
       Object.entries(data).forEach(([key, value]) => {
-        if (!key.startsWith('wallet_')) return;
-        localStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+        // Restaura apenas chaves conhecidas do sistema
+        if (ALL_STORAGE_KEYS.includes(key) || key.startsWith('wallet_')) {
+           localStorage.setItem(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+        }
       });
       setStatus('success');
       setTimeout(() => {
@@ -134,7 +143,7 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
   }, [status, showRestoreList]);
 
   const lastBackupStr = useMemo(() => {
-    if (!autoConfig.lastBackup) return 'Nunca realizado';
+    if (!autoConfig.lastBackup) return 'Pendente';
     return new Date(autoConfig.lastBackup).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }, [autoConfig.lastBackup]);
 
@@ -142,42 +151,42 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
     <div className="p-8 h-full flex flex-col bg-white dark:bg-slate-900 overflow-y-auto custom-scrollbar">
       <div className="mb-12 text-center">
         <h3 className="text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Backup</h3>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Segurança de Dados</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] mt-2">Sistema Completo v4.0</p>
       </div>
 
       <div className="space-y-8 pb-32">
         
-        {/* INDICADOR DE STATUS (CLEAN) */}
+        {/* INDICADOR DE STATUS */}
         <div className="flex items-center gap-4 p-6 bg-slate-50 dark:bg-slate-800/40 rounded-[2.5rem] border border-slate-100 dark:border-slate-800">
-          <div className="w-12 h-12 bg-emerald-500/10 text-emerald-600 rounded-2xl flex items-center justify-center">
-            <ShieldCheck size={24} />
+          <div className="w-12 h-12 bg-indigo-500/10 text-indigo-600 rounded-2xl flex items-center justify-center">
+            <FolderArchive size={24} />
           </div>
           <div>
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Estado da Proteção</p>
-            <p className="text-sm font-black text-slate-800 dark:text-white">Último envio: {lastBackupStr}</p>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Última Sincronização</p>
+            <p className="text-sm font-black text-slate-800 dark:text-white">{lastBackupStr}</p>
           </div>
         </div>
 
-        {/* CARD PRINCIPAL: SNAPSHOT (MAIS CLEAN) */}
-        <section className="relative p-8 bg-primary/5 dark:bg-primary/10 border-2 border-primary/20 rounded-[3rem] overflow-hidden group">
+        {/* CARD PRINCIPAL: SNAPSHOT */}
+        <section className="relative p-8 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[3rem] overflow-hidden group shadow-2xl">
            <div className="relative z-10 flex flex-col items-center text-center">
-              <div className="w-16 h-16 bg-primary text-white rounded-[2rem] flex items-center justify-center mb-6 shadow-xl shadow-primary/20 transition-transform group-hover:scale-110">
+              <div className="w-16 h-16 bg-white/10 dark:bg-slate-900/10 rounded-[2rem] flex items-center justify-center mb-6 backdrop-blur-md">
                  {status === 'loading' ? <Loader2 className="animate-spin" size={32}/> : <Save size={32}/>}
               </div>
-              <h4 className="text-slate-900 dark:text-white text-lg font-black uppercase tracking-tight">Snapshot Rápido</h4>
-              <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-2 max-w-[240px]">Cria um ponto de restauração instantâneo na memória do app</p>
+              <h4 className="text-lg font-black uppercase tracking-tight">Snapshot Local</h4>
+              <p className="opacity-60 text-[10px] font-bold uppercase tracking-widest mt-2 max-w-[240px]">Salva instantaneamente todo o estado atual do app</p>
               
               <button 
                 onClick={handleCreateInternalSnapshot} 
                 disabled={status === 'loading'}
-                className="mt-8 w-full py-5 bg-primary text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] shadow-xl hover:shadow-primary/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="mt-8 w-full py-5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                {status === 'success' ? <><Check size={18}/> Salvo!</> : 'Capturar Agora'}
+                {status === 'success' ? <><Check size={18}/> Sucesso!</> : 'Salvar Agora'}
               </button>
            </div>
         </section>
 
-        {/* GRID DE UTILIDADES REFINADO */}
+        {/* GRID DE UTILIDADES */}
         <div className="grid grid-cols-2 gap-4">
            {/* EXPORTAR */}
            <button 
@@ -187,18 +196,18 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
               <div className="p-4 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:bg-emerald-500 group-hover:text-white transition-all">
                  <FileDown size={24}/>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Exportar</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Exportar .JSON</span>
            </button>
 
            {/* IMPORTAR */}
            <button 
              onClick={() => fileInputRef.current?.click()}
-             className="p-6 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] flex flex-col items-center gap-4 transition-all hover:border-amber-500 hover:bg-amber-500/5 group shadow-sm"
+             className="p-6 bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-800 rounded-[2.5rem] flex flex-col items-center gap-4 transition-all hover:border-blue-500 hover:bg-blue-500/5 group shadow-sm"
            >
-              <div className="p-4 bg-amber-500/10 text-amber-600 rounded-2xl group-hover:bg-amber-500 group-hover:text-white transition-all">
+              <div className="p-4 bg-blue-500/10 text-blue-600 rounded-2xl group-hover:bg-blue-500 group-hover:text-white transition-all">
                  <FileUp size={24}/>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Importar</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Restaurar</span>
            </button>
            <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={(e) => {
               const file = e.target.files?.[0];
@@ -220,7 +229,7 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
               <div className="p-4 bg-primary/10 text-primary rounded-2xl group-hover:bg-primary group-hover:text-white transition-all">
                  <History size={24}/>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Histórico</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-300">Ver Histórico</span>
            </button>
 
            {/* AUTO BACKUP CONFIG */}
@@ -238,7 +247,7 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
            </div>
         </div>
 
-        {/* SEÇÃO: FREQUÊNCIA (CLEAN STYLE) */}
+        {/* SEÇÃO: FREQUÊNCIA */}
         {autoConfig.enabled && (
            <section className="p-2 bg-slate-100 dark:bg-slate-800/60 rounded-[2.2rem] border border-slate-200 dark:border-slate-700 animate-in fade-in slide-in-from-top-4 duration-500">
              <div className="grid grid-cols-3 gap-1">
@@ -255,18 +264,18 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
            </section>
         )}
 
-        {/* ZONA DE PERIGO (CLEAN & SUBTLE) */}
+        {/* ZONA DE PERIGO */}
         <section className="pt-12 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center">
            <button 
              onClick={() => setShowResetConfirm(true)} 
              className="text-[10px] font-black text-rose-500/60 hover:text-rose-600 uppercase tracking-[0.4em] flex items-center gap-2 transition-all p-4"
            >
-             <AlertOctagon size={14}/> Redefinir Aplicativo
+             <AlertOctagon size={14}/> Resetar Aplicativo
            </button>
         </section>
       </div>
 
-      {/* MODAL DE HISTÓRICO (CLEAN) */}
+      {/* MODAL DE HISTÓRICO */}
       {showRestoreList && (
         <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-2xl animate-in fade-in">
           <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[3.5rem] p-10 shadow-2xl flex flex-col max-h-[80vh] border border-slate-100 dark:border-slate-800">
@@ -278,7 +287,7 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-2">
               {localSnapshots.length === 0 ? (
                 <div className="py-24 text-center opacity-30">
-                  <p className="font-black text-[10px] uppercase tracking-widest">Vazio</p>
+                  <p className="font-black text-[10px] uppercase tracking-widest">Nenhum snapshot salvo</p>
                 </div>
               ) : (
                 localSnapshots.map((b: any) => (
@@ -318,10 +327,12 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
             <div className="w-20 h-20 bg-amber-500 text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-amber-500/20">
               <AlertCircle size={40} />
             </div>
-            <h4 className="text-2xl font-black uppercase mb-4 tracking-tighter text-slate-900 dark:text-white">Substituir?</h4>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-10 leading-relaxed px-2">Os dados atuais serão apagados permanentemente.</p>
+            <h4 className="text-2xl font-black uppercase mb-4 tracking-tighter text-slate-900 dark:text-white">Substituir Dados?</h4>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-10 leading-relaxed px-2">
+              Isso apagará TODOS os dados atuais (transações, notas, aniversários, etc) e os substituirá pelo backup.
+            </p>
             <div className="flex flex-col gap-3">
-              <button onClick={executeRestore} className="w-full py-6 bg-emerald-500 text-white rounded-3xl font-black text-xs uppercase shadow-xl hover:shadow-emerald-500/20 active:scale-95 transition-all">Sim, Restaurar</button>
+              <button onClick={executeRestore} className="w-full py-6 bg-emerald-500 text-white rounded-3xl font-black text-xs uppercase shadow-xl hover:shadow-emerald-500/20 active:scale-95 transition-all">Confirmar Restauração</button>
               <button onClick={() => { setStatus('idle'); setPendingData(null); }} className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-3xl font-black text-xs uppercase">Cancelar</button>
             </div>
           </div>
@@ -335,10 +346,10 @@ export const DatabaseManager: React.FC<Props> = ({ onRefresh }) => {
             <div className="w-20 h-20 bg-rose-500 text-white rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 shadow-xl shadow-rose-500/20">
               <AlertOctagon size={40} />
             </div>
-            <h4 className="text-2xl font-black uppercase mb-4 tracking-tighter text-slate-900 dark:text-white">Limpar Tudo?</h4>
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-10 leading-relaxed px-4">Esta ação é irreversível e apagará todos os seus registros.</p>
+            <h4 className="text-2xl font-black uppercase mb-4 tracking-tighter text-slate-900 dark:text-white">Limpeza Total</h4>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-10 leading-relaxed px-4">Esta ação é irreversível e apagará todos os registros, configurações e backups locais.</p>
             <div className="flex flex-col gap-3">
-              <button onClick={() => { localStorage.clear(); if(onRefresh) onRefresh(); }} className="w-full py-5 bg-rose-500 text-white rounded-3xl font-black text-xs uppercase shadow-xl active:scale-95 transition-all">Apagar Agora</button>
+              <button onClick={() => { localStorage.clear(); if(onRefresh) onRefresh(); }} className="w-full py-5 bg-rose-500 text-white rounded-3xl font-black text-xs uppercase shadow-xl active:scale-95 transition-all">Apagar Tudo</button>
               <button onClick={() => setShowResetConfirm(false)} className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-3xl font-black text-xs uppercase">Cancelar</button>
             </div>
           </div>

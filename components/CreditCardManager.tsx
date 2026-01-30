@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { CreditCard as CreditCardType, BankAccount } from '../types';
-import { Plus, Trash2, X, Pencil, Wifi } from 'lucide-react';
+import { Plus, Trash2, X, Pencil, Wifi, Eye, EyeOff, Calculator } from 'lucide-react';
 
 interface Props {
   cards: CreditCardType[];
@@ -28,7 +27,9 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
     closingDay: 1,
     dueDay: 10,
     color: '#1e293b',
-    bankAccountId: ''
+    bankAccountId: '',
+    includeInTotal: true,
+    isVisible: true
   });
 
   const handleOpenEdit = (card: CreditCardType) => {
@@ -38,15 +39,25 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
   };
 
   const handleSave = () => {
-    if (!newCard.name || !newCard.limit) return;
+    if (!newCard.name || !newCard.bankAccountId) {
+       alert("Por favor, preencha o nome e selecione uma conta para a fatura.");
+       return;
+    }
+    const cardData = {
+       ...newCard,
+       includeInTotal: newCard.includeInTotal !== false,
+       isVisible: newCard.isVisible !== false,
+       limit: Number(newCard.limit) || 0,
+    };
+
     if (editingId) {
-      onUpdate({ ...newCard, id: editingId } as CreditCardType);
+      onUpdate({ ...cardData, id: editingId } as CreditCardType);
     } else {
-      onAdd({ ...newCard, id: crypto.randomUUID() } as CreditCardType);
+      onAdd({ ...cardData, id: crypto.randomUUID() } as CreditCardType);
     }
     setShowAdd(false);
     setEditingId(null);
-    setNewCard({ name: '', brand: 'visa', limit: 0, closingDay: 1, dueDay: 10, color: '#1e293b', bankAccountId: '' });
+    setNewCard({ name: '', brand: 'visa', limit: 0, closingDay: 1, dueDay: 10, color: '#1e293b', bankAccountId: '', includeInTotal: true, isVisible: true });
   };
 
   const getBrandLogo = (brandId: string) => {
@@ -68,12 +79,12 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
     <div className="p-8 h-full flex flex-col relative overflow-hidden">
       <div className="mb-8">
         <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Meus Cartões</h3>
-        <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">Gestão Esqueumórfica de Crédito</p>
+        <p className="text-[10px] font-bold opacity-40 uppercase tracking-widest mt-1">Gestão de Crédito</p>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pb-40 space-y-6">
         {showAdd && (
-          <div className="bg-slate-50 dark:bg-slate-800 p-8 rounded-[2.5rem] mb-8 space-y-6 border-2 border-primary/20 animate-in zoom-in-95 duration-200 shadow-xl">
+          <div className="bg-slate-50 dark:bg-slate-800 p-8 rounded-[2.5rem] mb-8 space-y-6 border-2 border-primary/20 shadow-xl">
             <div className="flex justify-between items-center">
               <span className="text-[10px] font-black uppercase text-primary tracking-widest">{editingId ? 'Editar Cartão' : 'Novo Cartão'}</span>
               <button onClick={() => { setShowAdd(false); setEditingId(null); }} className="p-1 text-slate-400"><X size={16}/></button>
@@ -87,7 +98,7 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                      <button 
                        key={b.id}
                        onClick={() => setNewCard({...newCard, brand: b.id})}
-                       className={`shrink-0 px-4 py-3 rounded-2xl flex items-center gap-2 text-[9px] font-black uppercase transition-all border-2 active:scale-95 ${newCard.brand === b.id ? 'border-primary bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400'}`}
+                       className={`shrink-0 px-4 py-3 rounded-2xl flex items-center gap-2 text-[9px] font-black uppercase transition-all border-2 ${newCard.brand === b.id ? 'border-primary bg-primary text-white shadow-md' : 'bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-400'}`}
                      >
                        <span>{b.icon}</span> {b.name}
                      </button>
@@ -102,7 +113,7 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black opacity-30 uppercase ml-2 block">Limite Total</label>
+                  <label className="text-[9px] font-black opacity-30 uppercase ml-2 block">Limite (Opcional)</label>
                   <input type="number" value={newCard.limit} onChange={e => setNewCard({...newCard, limit: Number(e.target.value)})} className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border-none outline-none font-black text-xs text-emerald-500" />
                 </div>
                 <div className="space-y-2">
@@ -112,6 +123,18 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                      <span className="text-[8px] font-bold text-slate-400 uppercase">Selecionar</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-[9px] font-black opacity-30 uppercase ml-2 block text-rose-500">Conta para Débito da Fatura</label>
+                 <select 
+                   value={newCard.bankAccountId} 
+                   onChange={e => setNewCard({...newCard, bankAccountId: e.target.value})}
+                   className="w-full p-4 bg-white dark:bg-slate-900 rounded-2xl border-none outline-none font-bold text-xs appearance-none"
+                 >
+                    <option value="">Selecione a conta...</option>
+                    {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.bankName}</option>)}
+                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -125,7 +148,16 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                 </div>
               </div>
 
-              <button onClick={handleSave} className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">
+              <div className="flex gap-2">
+                 <button onClick={() => setNewCard({...newCard, includeInTotal: !newCard.includeInTotal})} className={`flex-1 p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${newCard.includeInTotal !== false ? 'border-rose-500 bg-rose-500/5 text-rose-600' : 'border-slate-200 text-slate-400'}`}>
+                    <Calculator size={16}/> <span className="text-[8px] font-black uppercase text-center">Incluir Dívida</span>
+                 </button>
+                 <button onClick={() => setNewCard({...newCard, isVisible: !newCard.isVisible})} className={`flex-1 p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all ${newCard.isVisible !== false ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-400'}`}>
+                    {newCard.isVisible !== false ? <Eye size={16}/> : <EyeOff size={16}/>} <span className="text-[8px] font-black uppercase text-center">Visível</span>
+                 </button>
+              </div>
+
+              <button onClick={handleSave} className="w-full py-5 bg-primary text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] shadow-xl transition-all">
                  {editingId ? 'Atualizar Cartão' : 'Salvar Cartão'}
               </button>
             </div>
@@ -135,28 +167,31 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
         {cards.map(card => {
           const account = accounts.find(a => a.id === card.bankAccountId);
           return (
-            <div key={card.id} className="relative group perspective-1000">
+            <div 
+              key={card.id} 
+              className={`relative group ${card.isVisible === false ? 'opacity-50' : ''}`}
+            >
               <div 
-                className="relative h-56 w-full rounded-[2rem] p-8 text-white shadow-2xl overflow-hidden flex flex-col justify-between transition-all duration-500 group-hover:scale-[1.03] group-hover:-translate-y-1 cursor-pointer hover:shadow-2xl"
+                className="relative h-56 w-full rounded-[2rem] p-8 text-white shadow-2xl overflow-hidden flex flex-col justify-between transition-all duration-500 cursor-pointer"
                 style={{ background: `linear-gradient(135deg, ${card.color} 0%, ${card.color}dd 100%)` }}
               >
-                {/* Efeito de Brilho */}
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-white/10 to-transparent pointer-events-none"></div>
                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/5 rounded-full blur-3xl group-hover:bg-white/10 transition-all"></div>
                 
-                {/* Cabeçalho do Cartão */}
                 <div className="flex justify-between items-start relative z-10">
                    <div className="flex flex-col gap-1">
-                      <h4 className="text-xl font-black tracking-tight leading-none">{card.name}</h4>
+                      <h4 className="text-xl font-black tracking-tight leading-none flex items-center gap-2">
+                        {card.name} 
+                        {card.isVisible === false && <EyeOff size={14} className="opacity-50"/>}
+                      </h4>
                       <p className="text-[7px] font-bold uppercase tracking-[0.4em] opacity-40">Credit Card</p>
                    </div>
                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(card); }} className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-all hover:scale-110 active:scale-90"><Pencil size={14}/></button>
-                      <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este cartão?')) onRemove(card.id); }} className="p-2 bg-rose-500/80 rounded-xl hover:bg-rose-500 transition-all hover:scale-110 active:scale-90"><Trash2 size={14}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(card); }} className="p-2 bg-white/20 rounded-xl hover:bg-white/30 transition-all"><Pencil size={14}/></button>
+                      <button onClick={(e) => { e.stopPropagation(); if(confirm('Excluir este cartão?')) onRemove(card.id); }} className="p-2 bg-rose-500/80 rounded-xl hover:bg-rose-500 transition-all"><Trash2 size={14}/></button>
                    </div>
                 </div>
 
-                {/* Chip e Contactless */}
                 <div className="flex items-center gap-6 relative z-10">
                    <div className="w-12 h-9 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-500 rounded-lg relative overflow-hidden shadow-inner border border-black/10">
                       <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-[1px] opacity-20">
@@ -166,13 +201,20 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
                    <Wifi size={24} className="text-white/30 rotate-90" />
                 </div>
 
-                {/* Info e Bandeira */}
                 <div className="flex justify-between items-end relative z-10">
                    <div>
-                      <p className="text-[7px] font-black uppercase tracking-[0.2em] opacity-50 mb-1">Limit Available</p>
+                      <p className="text-[7px] font-black uppercase tracking-[0.2em] opacity-50 mb-1 flex items-center gap-1">
+                        Limite {card.includeInTotal === false && <span className="bg-black/20 px-1 rounded text-[6px]">Oculto</span>}
+                      </p>
                       <p className="text-xl font-black tracking-tighter">R$ {card.limit.toLocaleString('pt-BR')}</p>
-                      {account && (
-                        <p className="text-[6px] font-black uppercase tracking-widest mt-2 bg-black/20 px-2 py-1 rounded w-fit">Auto Debit: {account.bankName}</p>
+                      {account ? (
+                        <p className="text-[6px] font-black uppercase tracking-widest mt-2 bg-black/20 px-2 py-1 rounded w-fit flex items-center gap-1">
+                           Débito: {account.bankName}
+                        </p>
+                      ) : (
+                        <p className="text-[6px] font-black uppercase tracking-widest mt-2 bg-rose-500/50 px-2 py-1 rounded w-fit flex items-center gap-1">
+                           Sem conta
+                        </p>
                       )}
                    </div>
                    <div className="flex flex-col items-end gap-1">
@@ -191,15 +233,15 @@ export const CreditCardManager: React.FC<Props> = ({ cards, accounts, onAdd, onU
         {cards.length === 0 && !showAdd && (
           <div className="py-24 text-center opacity-20 flex flex-col items-center">
             <div className="w-20 h-14 border-4 border-dashed border-slate-300 rounded-xl mb-4"></div>
-            <p className="font-black text-xs uppercase tracking-[0.4em]">Nenhum cartão ativo</p>
+            <p className="font-black text-xs uppercase tracking-[0.4em]">Nenhum cartão</p>
           </div>
         )}
       </div>
 
       {!showAdd && (
         <div className="absolute bottom-0 left-0 right-0 p-8 pt-12 bg-gradient-to-t from-white dark:from-slate-900 via-white/90 dark:via-slate-900/90 to-transparent z-10">
-          <button onClick={() => setShowAdd(true)} className="w-full py-5 bg-primary text-white rounded-[2rem] font-black text-[9px] uppercase tracking-[0.3em] shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all hover:scale-105">
-            <Plus size={20} /> Novo Cartão de Crédito
+          <button onClick={() => setShowAdd(true)} className="w-full py-5 bg-primary text-white rounded-[2rem] font-black text-[9px] uppercase tracking-[0.3em] shadow-2xl flex items-center justify-center gap-3 transition-all">
+            <Plus size={20} /> Novo Cartão
           </button>
         </div>
       )}

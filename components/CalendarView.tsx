@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Plus, Receipt, Bell, 
@@ -28,6 +27,7 @@ interface Props {
   onGoToMainFilter: () => void;
 }
 
+// FIX: Export CalendarView component.
 export const CalendarView: React.FC<Props> = ({ 
   period, 
   setPeriod, 
@@ -151,14 +151,14 @@ export const CalendarView: React.FC<Props> = ({
                   onChangeDate(day);
                   setViewMode('DAY_DETAILS');
                 }}
-                className={`aspect-square rounded-2xl flex flex-col justify-start items-center gap-1 p-1 pt-2 transition-all relative border-2 ${
+                className={`aspect-square rounded-2xl flex flex-col justify-between items-center p-1 pt-2 transition-all relative border-2 ${
                   isSelected ? 'bg-primary border-primary text-white shadow-lg scale-110 z-10' : 
                   isToday ? 'border-primary/30 bg-primary/5 text-primary' :
                   'bg-slate-50 dark:bg-slate-800/50 border-transparent text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
                 }`}
               >
-                <span className="text-xs font-black leading-none">{day.getDate()}</span>
-                <div className="flex gap-0.5 justify-center w-full mt-auto mb-1">
+                <span className="text-xs font-black">{day.getDate()}</span>
+                <div className="flex gap-0.5 justify-center w-full mb-1">
                   {hasTrans && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white' : 'bg-indigo-500'}`}></div>}
                   {hasRem && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/60' : 'bg-rose-500'}`}></div>}
                   {hasNote && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/40' : 'bg-emerald-500'}`}></div>}
@@ -257,133 +257,95 @@ export const CalendarView: React.FC<Props> = ({
                 </button>
 
                 <div className="flex items-center gap-5">
-                  <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center border border-white/20 shadow-2xl">
-                    <span className="text-[9px] font-black uppercase opacity-60 leading-none mb-1">{getWeekdayName(selectedDate)}</span>
-                    <span className="text-4xl font-black leading-none tracking-tighter">{selectedDate.getDate()}</span>
+                  <div className="w-20 h-20 bg-primary rounded-3xl flex flex-col items-center justify-center shadow-2xl shadow-primary/30 border-4 border-white/10">
+                    <span className="text-4xl font-black tracking-tighter">{selectedDate.getDate()}</span>
                   </div>
-                  <div>
-                    <h4 className="text-xl font-black uppercase tracking-tight">{months[selectedDate.getMonth()]}</h4>
-                    <p className="text-[9px] font-black text-primary uppercase tracking-[0.3em]">{selectedDate.getFullYear()}</p>
+                  <div className="text-left">
+                     <span className="font-black text-2xl uppercase tracking-wider">{getWeekdayName(selectedDate)}</span>
+                     <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest mt-1">
+                       {months[selectedDate.getMonth()]}, {selectedDate.getFullYear()}
+                     </p>
                   </div>
                 </div>
-
+                
                 <button onClick={handleNextDay} className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-all active:scale-90 border border-white/5">
                    <ChevronRight size={24}/>
                 </button>
               </div>
             </div>
 
-            {/* SEÇÃO: NOTAS DO DIA */}
+            {/* SEÇÃO DE LEMBRETES */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 px-2">
-                <StickyNote size={14} className="text-emerald-500"/>
-                <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bloco de Notas</h5>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
+                <Bell size={10}/> Lembretes
+              </p>
+              {dayReminders.length > 0 && dayReminders.map(r => (
+                <div key={r.id} className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-2xl flex items-center justify-between group">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => onToggleReminder(r.id)} className="transition-transform active:scale-90">
+                      {r.completed ? <CheckCircle2 size={18} className="text-rose-400"/> : <Circle size={18} className="text-rose-200 group-hover:text-rose-400"/>}
+                    </button>
+                    <div className={r.completed ? 'line-through opacity-50' : ''}>
+                      <p className="text-[9px] font-black text-rose-800 uppercase">{r.text}</p>
+                      <p className="text-[7px] font-bold text-rose-400 uppercase">{r.time}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              <div className="flex gap-2 items-center p-2 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                 <input value={newReminderText} onChange={e => setNewReminderText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddQuickReminder()} placeholder="Novo lembrete rápido..." className="flex-1 bg-transparent px-3 py-2 text-xs font-bold outline-none"/>
+                 <button onClick={handleAddQuickReminder} className="p-2.5 bg-primary text-white rounded-xl"><Plus size={14}/></button>
               </div>
-              <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-[2rem] border-2 border-emerald-100 dark:border-emerald-900/30 p-4">
+            </div>
+            
+            {/* SEÇÃO DE TRANSAÇÕES */}
+            <div className="space-y-3">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
+                <Wallet size={10}/> Transações
+              </p>
+              {dayTransactions.length > 0 ? dayTransactions.map(t => {
+                 const isIncome = t.type === TransactionType.INCOME;
+                 const isCard = t.type === TransactionType.CREDIT_CARD;
+                 return (
+                   <div key={t.id} onClick={() => onViewTransaction(t)} className="p-4 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-between border border-slate-100 dark:border-slate-700 shadow-sm cursor-pointer hover:border-primary/20">
+                     <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${isIncome ? 'bg-emerald-500/10 text-emerald-500' : isCard ? 'bg-blue-500/10 text-blue-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                           {isIncome ? <TrendingUp size={16}/> : isCard ? <CreditCard size={16}/> : <TrendingDown size={16}/>}
+                        </div>
+                        <div>
+                           <p className="text-[9px] font-black uppercase">{t.description}</p>
+                           <p className="text-[7px] font-bold text-slate-400 uppercase">{t.category}</p>
+                        </div>
+                     </div>
+                     <span className={`text-xs font-black ${isIncome ? 'text-emerald-500' : 'text-rose-500'}`}>{isIncome ? '+' : '-'} {t.amount.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</span>
+                   </div>
+                 );
+              }) : (
+                <div className="text-center py-6">
+                  <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Nenhum lançamento</p>
+                </div>
+              )}
+              <button onClick={() => onAddTransaction(selectedDateStr)} className="w-full py-4 bg-primary/10 text-primary rounded-2xl font-black text-[8px] uppercase tracking-widest flex items-center justify-center gap-2 border border-dashed border-primary/20 hover:bg-primary/20">
+                 <Plus size={12}/> Adicionar Lançamento
+              </button>
+            </div>
+            
+            {/* SEÇÃO NOTA RÁPIDA */}
+            <div className="space-y-3">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-4 flex items-center gap-2">
+                <StickyNote size={10}/> Bloco de Notas do Dia
+              </p>
+              <div className="relative">
                 <textarea 
                   value={noteValue}
                   onChange={handleNoteChange}
-                  placeholder="Escreva algo sobre este dia..."
-                  className="w-full bg-transparent min-h-[100px] outline-none font-bold text-sm text-slate-700 dark:text-slate-200 placeholder:text-emerald-300 dark:placeholder:text-emerald-800 resize-none leading-relaxed"
+                  placeholder="Anotações para este dia..."
+                  className="w-full h-32 p-4 bg-amber-500/5 border-2 border-amber-500/10 rounded-2xl text-xs font-bold leading-relaxed resize-none outline-none focus:border-amber-500/50"
                 />
-                <div className="flex justify-end mt-2">
-                   <div className="flex items-center gap-1.5 text-[7px] font-black uppercase text-emerald-500 opacity-60">
-                      <Save size={10}/> Auto-salvamento ativo
-                   </div>
-                </div>
+                <Save size={12} className="absolute bottom-4 right-4 text-amber-500/20"/>
               </div>
             </div>
 
-            {/* SEÇÃO: LEMBRETES */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-2">
-                  <Bell size={14} className="text-rose-500"/>
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Lembretes</h5>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex gap-2 p-1.5 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-800 focus-within:border-rose-500/20 transition-all">
-                   <input 
-                     value={newReminderText} 
-                     onChange={e => setNewReminderText(e.target.value)}
-                     placeholder="Novo lembrete rápido..." 
-                     className="flex-1 bg-transparent px-3 py-1 font-bold text-xs outline-none" 
-                   />
-                   <button onClick={handleAddQuickReminder} className="p-2.5 bg-rose-500 text-white rounded-xl shadow-lg shadow-rose-500/20 active:scale-95 transition-all">
-                      <Plus size={16}/>
-                   </button>
-                </div>
-
-                {dayReminders.length > 0 && (
-                  <div className="space-y-2 mt-4">
-                    {dayReminders.map(r => (
-                      <div 
-                        key={r.id} 
-                        className={`flex items-center justify-between p-4 rounded-3xl border-2 transition-all ${r.completed ? 'bg-slate-50 dark:bg-slate-800/30 border-transparent opacity-60' : 'bg-white dark:bg-slate-800 border-slate-50 dark:border-slate-800'}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          <button onClick={() => onToggleReminder(r.id)} className={`transition-all ${r.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-rose-400'}`}>
-                            {r.completed ? <CheckCircle2 size={24}/> : <Circle size={24}/>}
-                          </button>
-                          <p className={`text-xs font-black ${r.completed ? 'line-through text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{r.text}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* SEÇÃO: MOVIMENTAÇÕES */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp size={14} className="text-primary"/>
-                  <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Movimentações</h5>
-                </div>
-                <button onClick={() => onAddTransaction(selectedDateStr)} className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary hover:text-white transition-all"><Plus size={14}/></button>
-              </div>
-              
-              <div className="space-y-2">
-                {dayTransactions.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
-                    <p className="text-[9px] font-black uppercase text-slate-300 tracking-widest">Sem transações financeiras</p>
-                  </div>
-                ) : (
-                  dayTransactions.map(t => (
-                    <button 
-                      key={t.id} 
-                      onClick={() => onViewTransaction(t)}
-                      className="w-full flex items-center justify-between p-4 bg-white dark:bg-slate-800 border-2 border-slate-50 dark:border-slate-800 rounded-3xl hover:border-primary transition-all group shadow-sm"
-                    >
-                      <div className="flex items-center gap-4 text-left">
-                        <div className={`p-2.5 rounded-xl ${t.type === TransactionType.INCOME ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                          {t.type === TransactionType.INCOME ? <TrendingUp size={16}/> : <TrendingDown size={16}/>}
-                        </div>
-                        <div>
-                          <p className="text-xs font-black text-slate-700 dark:text-slate-200 group-hover:text-primary transition-colors truncate max-w-[120px]">{t.description}</p>
-                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{t.category}</p>
-                        </div>
-                      </div>
-                      <p className={`text-xs font-black ${t.type === TransactionType.INCOME ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {t.type === TransactionType.INCOME ? '+' : '-'} {t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </p>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="pt-6">
-              <button 
-                onClick={onGoToMainFilter}
-                className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl active:scale-95 transition-all flex items-center justify-center gap-3"
-              >
-                Abrir no Extrato Principal <ArrowRight size={16}/>
-              </button>
-            </div>
           </div>
         )}
       </div>

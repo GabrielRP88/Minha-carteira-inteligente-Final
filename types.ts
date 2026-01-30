@@ -21,6 +21,13 @@ export interface AutoBackupConfig {
   lastBackup?: number;
 }
 
+export interface AnimationConfig {
+  enabled: boolean;
+  type: string; // ID da animação (ex: 'scale-up')
+  intensity: number; // 0.5 a 2.0
+  speed: number; // 0.5 a 3.0
+}
+
 export interface BankAccount {
   id: string;
   bankName: string;
@@ -29,6 +36,9 @@ export interface BankAccount {
   color: string;
   initialBalance: number;
   isDefault?: boolean;
+  type: 'CHECKING' | 'SAVINGS'; // Corrente ou Poupança
+  includeInTotal: boolean;      // Incluir no saldo geral
+  isVisible: boolean;           // Exibir nas listas
 }
 
 export interface CreditCard {
@@ -40,6 +50,8 @@ export interface CreditCard {
   dueDay: number;
   color: string;
   bankAccountId?: string;
+  includeInTotal: boolean; // Incluir dívida no total devedor
+  isVisible: boolean;      // Exibir nas listas
 }
 
 export interface Transaction {
@@ -62,6 +74,7 @@ export interface Transaction {
   receiptAttachment?: string;
   receiptFileName?: string;
   barcode?: string;
+  notified?: boolean;
 }
 
 export interface Reminder {
@@ -76,6 +89,14 @@ export interface Reminder {
   receiptFileName?: string;
 }
 
+export interface Birthday {
+  id: string;
+  name: string;
+  birthDate: string;
+}
+
+export type Language = 'pt' | 'en' | 'es' | 'fr' | 'de' | 'it' | 'jp' | 'zh' | 'ru' | 'ar' | 'hi' | 'ko' | 'tr' | 'nl' | 'pl' | 'sv' | 'el' | 'he' | 'vi' | 'pt_pt';
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -84,12 +105,14 @@ export interface UserProfile {
   avatar?: string;
   avatarConfig?: any;
   address?: string;
+  birthDate?: string;
   isLocal: boolean;
   attachmentRetentionMonths?: number;
-  language?: 'pt' | 'en' | 'es';
+  language?: Language;
   notificationSound?: 'cash_register' | 'beep' | 'digital' | 'chime' | 'coins' | 'success' | 'drum' | 'bubble' | 'glass' | 'silver' | 'laser' | 'retro' | 'harp' | 'guitar' | 'whistle' | 'crystal';
   notificationsEnabled?: boolean;
   autoBackupConfig?: AutoBackupConfig;
+  animationConfig?: AnimationConfig;
 }
 
 export interface DashboardWidget {

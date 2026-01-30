@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile } from '../types';
-import { Camera, User, Save, Upload, RefreshCw, Check, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, User, Save, Upload, RefreshCw, Check, Sparkles, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { CameraModal } from './CameraModal';
 
 interface Props {
@@ -118,6 +118,20 @@ export const ProfileEditor: React.FC<Props> = ({ user, onUpdate }) => {
                 onChange={e => setFormData({...formData, name: e.target.value})}
                 className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 outline-none font-black text-sm text-slate-700 dark:text-white placeholder:opacity-20 transition-all focus:bg-white dark:focus:bg-slate-800 focus:ring-4 focus:ring-primary/5"
                 placeholder="Seu nome aqui"
+              />
+            </div>
+          </div>
+
+          <div className="w-full space-y-3">
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4 flex items-center gap-2">
+              <Calendar size={10}/> Data de Nascimento
+            </label>
+            <div className="relative">
+              <input 
+                type="date"
+                value={formData.birthDate || ''}
+                onChange={e => setFormData({...formData, birthDate: e.target.value})}
+                className="w-full px-8 py-5 bg-slate-50 dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 outline-none font-black text-sm text-slate-700 dark:text-white uppercase transition-all focus:bg-white dark:focus:bg-slate-800 focus:ring-4 focus:ring-primary/5"
               />
             </div>
           </div>
