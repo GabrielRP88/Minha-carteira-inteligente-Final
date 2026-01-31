@@ -6,7 +6,7 @@ import {
   Tag, CreditCard as CardIcon, Building2, Calculator,
   ChevronRight, Calendar, Info, Check, Sparkles, Paperclip,
   Share2, Eye, Copy, Landmark, Wallet, Image as ImageIcon,
-  ArrowLeft, Search
+  ArrowLeft, Search, FolderClosed
 } from 'lucide-react';
 import { CameraModal } from './CameraModal';
 import { generateId } from '../utils/helpers';
@@ -35,13 +35,14 @@ export const TransactionForm: React.FC<Props> = ({
   const [category, setCategory] = useState(initialData?.category || categories[0]);
   const [barcode, setBarcode] = useState(initialData?.barcode || '');
   
+  // Anexos
   const [billAttachment, setBillAttachment] = useState<string | undefined>(initialData?.billAttachment);
   const [billFileName, setBillFileName] = useState<string | undefined>(initialData?.billFileName);
   const [receiptAttachment, setReceiptAttachment] = useState<string | undefined>(initialData?.receiptAttachment);
   const [receiptFileName, setReceiptFileName] = useState<string | undefined>(initialData?.receiptFileName);
 
   const [view, setView] = useState<'FORM' | 'CATEGORIES' | 'INSTALLMENTS'>('FORM');
-  const [activeCameraType, setActiveCameraType] = useState<'BILL' | 'RECEIPT' | null>(null);
+  const [activeCameraTarget, setActiveCameraTarget] = useState<'BILL' | 'RECEIPT' | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   const [paymentMethod, setPaymentMethod] = useState<'ACCOUNT' | 'CARD'>(initialData?.cardId ? 'CARD' : 'ACCOUNT');
@@ -50,8 +51,10 @@ export const TransactionForm: React.FC<Props> = ({
   const [installmentsCount, setInstallmentsCount] = useState(initialData?.totalInstallments || 1);
   const [newCatName, setNewCatName] = useState('');
 
-  const billFileInputRef = useRef<HTMLInputElement>(null);
-  const receiptFileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentFileInputTarget = useRef<'BILL' | 'RECEIPT' | null>(null);
+
+  const isIncome = type === TransactionType.INCOME;
 
   const sortedCategories = useMemo(() => {
     const usage: Record<string, number> = {};
@@ -61,9 +64,10 @@ export const TransactionForm: React.FC<Props> = ({
 
   const currentAmountNum = parseFloat(amount) || 0;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'BILL' | 'RECEIPT') => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const target = currentFileInputTarget.current;
     const file = e.target.files?.[0];
-    if (file) {
+    if (file && target) {
       const reader = new FileReader();
       reader.onloadend = () => {
         if (target === 'BILL') {
@@ -78,29 +82,20 @@ export const TransactionForm: React.FC<Props> = ({
     }
   };
 
+  const triggerFileInput = (target: 'BILL' | 'RECEIPT') => {
+    currentFileInputTarget.current = target;
+    fileInputRef.current?.click();
+  };
+
   const handleCameraCapture = (base64: string) => {
-    if (activeCameraType === 'BILL') {
+    if (activeCameraTarget === 'BILL') {
       setBillAttachment(base64);
-      setBillFileName(`Doc_${Date.now()}.jpg`);
-    } else if (activeCameraType === 'RECEIPT') {
+      setBillFileName(`Conta_${Date.now()}.jpg`);
+    } else if (activeCameraTarget === 'RECEIPT') {
       setReceiptAttachment(base64);
       setReceiptFileName(`Comprovante_${Date.now()}.jpg`);
     }
-    setActiveCameraType(null);
-  };
-
-  const shareContent = async (title: string, text: string, dataUrl?: string, fileName?: string) => {
-    if (!navigator.share) return alert("Compartilhamento não suportado.");
-    try {
-      const shareData: ShareData = { title, text };
-      if (dataUrl && fileName) {
-        const response = await fetch(dataUrl);
-        const blob = await response.blob();
-        const file = new File([blob], fileName, { type: blob.type });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) shareData.files = [file];
-      }
-      await navigator.share(shareData);
-    } catch (err) { console.error(err); }
+    setActiveCameraTarget(null);
   };
 
   const openFile = (dataUrl: string) => {
@@ -113,81 +108,55 @@ export const TransactionForm: React.FC<Props> = ({
       const blob = new Blob([byteArray], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
     } else setPreviewImage(dataUrl);
   };
 
   const submitWithStatus = (isPaidStatus: boolean) => {
     if (!description || !amount) return;
     const numAmount = parseFloat(amount) || 0;
-    const isCard = paymentMethod === 'CARD' && type !== TransactionType.INCOME;
+    const isCard = paymentMethod === 'CARD' && !isIncome;
     const transactionsToCreate: Transaction[] = [];
 
-    // Lógica para Entrada: Anexo principal é o Comprovante (receiptAttachment)
-    // Lógica para Saída: Anexo principal é a Conta (billAttachment)
-    // O formulário usa billAttachment para visualmente mostrar "Anexo" nas saídas e "Comprovante" nas entradas para simplificar a UX
-    // Mas internamente vamos mapear corretamente.
-    
-    // Simplificação Visual: O campo de anexo principal visualizado no form será salvo como:
-    // Entrada -> receiptAttachment
-    // Saída -> billAttachment
-    
-    let finalBillAttachment = undefined;
-    let finalBillName = undefined;
-    let finalReceiptAttachment = undefined;
-    let finalReceiptName = undefined;
-
-    if (type === TransactionType.INCOME) {
-        finalReceiptAttachment = billAttachment; // No UI usamos o estado 'billAttachment' para capturar o arquivo
-        finalReceiptName = billFileName;
-    } else {
-        finalBillAttachment = billAttachment;
-        finalBillName = billFileName;
-        // Se houver um segundo anexo (comprovante de pagamento imediato), estaria em receiptAttachment, mas aqui simplificamos a criação.
-    }
+    const baseData = {
+      description,
+      amount: numAmount,
+      date,
+      category,
+      barcode: isIncome ? undefined : barcode,
+      billAttachment: isIncome ? undefined : billAttachment,
+      billFileName: isIncome ? undefined : billFileName,
+      receiptAttachment: isIncome ? billAttachment : receiptAttachment, // No Income, o anexo principal é tratado como recibo
+      receiptFileName: isIncome ? billFileName : receiptFileName,
+    };
 
     if (isCard) {
-      const card = creditCards.find(c => c.id === selectedCardId);
-      if (!card) return;
       const parcelValue = parseFloat((numAmount / installmentsCount).toFixed(2));
       const [y, m, d] = date.split('-').map(Number);
 
       for (let i = 0; i < installmentsCount; i++) {
         const newDateObj = new Date(y, m - 1 + i, d);
-        const installmentDate = newDateObj.toLocaleDateString('en-CA');
-
         transactionsToCreate.push({
+          ...baseData,
           id: generateId(),
           description: installmentsCount > 1 ? `${description} (${i + 1}/${installmentsCount})` : description,
           amount: parcelValue,
-          date: installmentDate,
+          date: newDateObj.toLocaleDateString('en-CA'),
           type: TransactionType.CREDIT_CARD,
-          category,
-          barcode: i === 0 ? barcode : undefined, // Código de barras apenas na primeira parcela
-          billAttachment: i === 0 ? finalBillAttachment : undefined,
-          billFileName: i === 0 ? finalBillName : undefined,
-          receiptAttachment: undefined, 
-          receiptFileName: undefined,
           isInstallment: installmentsCount > 1,
           totalInstallments: installmentsCount,
           currentInstallment: i + 1,
           isPaid: false,
-          cardId: selectedCardId
+          cardId: selectedCardId,
+          // Anexos apenas na primeira parcela para não duplicar espaço
+          billAttachment: i === 0 ? baseData.billAttachment : undefined,
+          receiptAttachment: i === 0 ? baseData.receiptAttachment : undefined,
         });
       }
     } else {
       transactionsToCreate.push({
+        ...baseData,
         id: initialData?.id || generateId(),
-        description,
-        amount: numAmount,
-        date,
         type: type,
-        category,
-        barcode: type === TransactionType.INCOME ? undefined : barcode,
-        billAttachment: finalBillAttachment,
-        billFileName: finalBillName,
-        receiptAttachment: finalReceiptAttachment,
-        receiptFileName: finalReceiptName,
         isInstallment: false,
         isPaid: isPaidStatus,
         bankAccountId: selectedAccountId,
@@ -196,8 +165,6 @@ export const TransactionForm: React.FC<Props> = ({
     onAdd(transactionsToCreate);
     onClose();
   };
-
-  const isIncome = type === TransactionType.INCOME;
 
   if (view === 'CATEGORIES') {
     return (
@@ -220,13 +187,6 @@ export const TransactionForm: React.FC<Props> = ({
               <button onClick={() => onRemoveCategory(cat)} className="p-2.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"><Trash2 size={14}/></button>
             </div>
           ))}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Nova Categoria</p>
-            <div className="flex gap-2 p-1 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700">
-               <input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nome..." className="flex-1 bg-transparent px-3 py-1.5 font-bold text-xs outline-none" />
-               <button onClick={() => { if(newCatName) { onAddCategory(newCatName); setCategory(newCatName); setNewCatName(''); } }} className="p-2 bg-primary text-white rounded-lg"><Plus size={14}/></button>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -237,38 +197,16 @@ export const TransactionForm: React.FC<Props> = ({
       <div className="flex flex-col h-full bg-white dark:bg-slate-900">
         <div className="flex items-center justify-between p-4 border-b border-slate-50 dark:border-slate-800">
            <button onClick={() => setView('FORM')} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><ArrowLeft size={18}/></button>
-           <h3 className="text-sm font-black uppercase tracking-tight">Opções de Parcelamento</h3>
+           <h3 className="text-sm font-black uppercase tracking-tight">Parcelas</h3>
            <div className="w-8"></div>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <div className="grid grid-cols-2 gap-2 mb-6">
-            {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(p => {
-              const installmentValue = currentAmountNum / p;
-              return (
-                <button 
-                  key={p} 
-                  onClick={() => { setInstallmentsCount(p); setView('FORM'); }} 
-                  className={`p-3 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${installmentsCount === p ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}
-                >
-                  <span className="text-sm font-black">{p}x</span>
-                  <span className={`text-[8px] font-bold ${installmentsCount === p ? 'text-white/70' : 'text-slate-400'}`}>
-                    {installmentValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-slate-800">
-             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest text-center">Nº Personalizado</p>
-             <div className="flex gap-2">
-                <input 
-                  type="number" 
-                  value={installmentsCount} 
-                  onChange={e => setInstallmentsCount(parseInt(e.target.value) || 1)}
-                  className="flex-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xl font-black text-center outline-none border-2 border-transparent focus:border-blue-500"
-                />
-                <button onClick={() => setView('FORM')} className="px-6 bg-blue-600 text-white rounded-xl font-black text-[9px] uppercase tracking-widest">OK</button>
-             </div>
+            {[1, 2, 3, 4, 5, 6, 8, 10, 12].map(p => (
+              <button key={p} onClick={() => { setInstallmentsCount(p); setView('FORM'); }} className={`p-3 rounded-xl border-2 flex flex-col items-center justify-center transition-all ${installmentsCount === p ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-50 dark:bg-slate-800 border-transparent text-slate-400'}`}>
+                <span className="text-sm font-black">{p}x</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -277,155 +215,131 @@ export const TransactionForm: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900">
-      <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-slate-50 dark:border-slate-800">
-        <div>
-           <h3 className={`text-base font-black uppercase tracking-tight leading-none mb-0.5 ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-white'}`}>
-             {isIncome ? 'Nova Entrada' : 'Nova Saída'}
-           </h3>
-           <p className="text-[7px] font-black opacity-30 uppercase tracking-[0.4em]">Financeiro Smart</p>
-        </div>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-50 dark:border-slate-800">
+        <h3 className={`text-base font-black uppercase tracking-tight ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-white'}`}>
+          {isIncome ? 'Nova Entrada' : 'Nova Saída'}
+        </h3>
         <button onClick={onClose} className="p-1.5 bg-slate-100 dark:bg-slate-800 rounded-full"><X size={16}/></button>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5 pb-28">
-        
-        {/* VALOR DESTAQUE */}
-        <section className={`p-4 rounded-2xl shadow-inner text-center relative overflow-hidden transition-colors ${isIncome ? 'bg-emerald-500/5' : 'bg-slate-50 dark:bg-slate-800/40'}`}>
-           <p className="text-[7px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">{isIncome ? 'Recebimento' : 'Valor Total'}</p>
+        <section className={`p-4 rounded-2xl text-center ${isIncome ? 'bg-emerald-500/5' : 'bg-slate-50 dark:bg-slate-800/40'}`}>
+           <p className="text-[7px] font-black uppercase tracking-[0.4em] text-slate-400 mb-1">Valor</p>
            <div className="flex items-center justify-center gap-1.5">
               <span className={`text-lg font-black ${isIncome ? 'text-emerald-500' : 'text-slate-400'}`}>R$</span>
-              <input 
-                type="number" step="0.01" placeholder="0,00" autoFocus
-                value={amount} onChange={e => setAmount(e.target.value)} 
-                className={`w-full max-w-[140px] bg-transparent font-black text-3xl tracking-tighter outline-none text-center ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-white'}`}
-              />
+              <input type="number" step="0.01" placeholder="0,00" autoFocus value={amount} onChange={e => setAmount(e.target.value)} className={`w-full max-w-[140px] bg-transparent font-black text-3xl outline-none text-center ${isIncome ? 'text-emerald-500' : 'text-slate-800 dark:text-white'}`} />
            </div>
-           {!fixedType && (
-              <div className="flex gap-1.5 p-1 bg-white dark:bg-slate-950/50 rounded-lg mt-3 w-fit mx-auto border border-slate-100 dark:border-slate-800 shadow-sm">
-                {[TransactionType.INCOME, TransactionType.EXPENSE].map(opt => (
-                  <button key={opt} type="button" onClick={() => setType(opt)} className={`px-4 py-1.5 rounded-md text-[7px] font-black uppercase tracking-widest transition-all ${type === opt ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm' : 'text-slate-400'}`}>{opt === 'INCOME' ? 'Entrada' : 'Saída'}</button>
-                ))}
-              </div>
-           )}
         </section>
 
-        {/* FORMA DE PAGAMENTO */}
         {!isIncome && (
            <div className="flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-             <button onClick={() => setPaymentMethod('ACCOUNT')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'ACCOUNT' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-400'}`}><Building2 size={12}/> Conta</button>
-             <button onClick={() => setPaymentMethod('CARD')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-widest transition-all ${paymentMethod === 'CARD' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400'}`}><CardIcon size={12}/> Cartão</button>
+             <button onClick={() => setPaymentMethod('ACCOUNT')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-[8px] font-black uppercase transition-all ${paymentMethod === 'ACCOUNT' ? 'bg-white dark:bg-slate-700 text-primary shadow-sm' : 'text-slate-400'}`}><Building2 size={12}/> Conta</button>
+             <button onClick={() => setPaymentMethod('CARD')} className={`flex-1 py-2.5 rounded-lg flex items-center justify-center gap-2 text-[8px] font-black uppercase transition-all ${paymentMethod === 'CARD' ? 'bg-white dark:bg-slate-700 text-blue-600 shadow-sm' : 'text-slate-400'}`}><CardIcon size={12}/> Cartão</button>
            </div>
         )}
 
-        {/* SELEÇÃO CONTA/CARTÃO */}
-        <section className="space-y-2.5">
-           <div className="relative">
-              <select 
-                value={paymentMethod === 'CARD' && !isIncome ? selectedCardId : selectedAccountId} 
-                onChange={e => paymentMethod === 'CARD' && !isIncome ? setSelectedCardId(e.target.value) : setSelectedAccountId(e.target.value)} 
-                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-black text-[9px] uppercase outline-none appearance-none border-2 border-transparent focus:border-primary pr-10"
-              >
-                {paymentMethod === 'CARD' && !isIncome ? creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>) : bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.bankName}</option>)}
-              </select>
-              <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-40"/>
-           </div>
+        <section className="space-y-3">
+           <select value={paymentMethod === 'CARD' && !isIncome ? selectedCardId : selectedAccountId} onChange={e => paymentMethod === 'CARD' && !isIncome ? setSelectedCardId(e.target.value) : setSelectedAccountId(e.target.value)} className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-black text-[9px] uppercase outline-none appearance-none border-2 border-transparent focus:border-primary">
+             {paymentMethod === 'CARD' && !isIncome ? creditCards.map(c => <option key={c.id} value={c.id}>{c.name}</option>) : bankAccounts.map(acc => <option key={acc.id} value={acc.id}>{acc.bankName}</option>)}
+           </select>
 
            {paymentMethod === 'CARD' && !isIncome && (
               <button onClick={() => setView('INSTALLMENTS')} className="w-full p-3.5 bg-blue-500/5 dark:bg-slate-800 rounded-xl border border-blue-500/10 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-blue-500/10 text-blue-500 rounded-md"><Calculator size={12}/></div>
-                  <span className="font-black text-[9px] uppercase tracking-widest">{installmentsCount}x de {(currentAmountNum/installmentsCount).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                </div>
+                <span className="font-black text-[9px] uppercase tracking-widest">{installmentsCount}x parcelas</span>
                 <ChevronRight size={12} className="opacity-30"/>
               </button>
            )}
 
-           <input placeholder="Descrição" value={description} onChange={e => setDescription(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none border-2 border-transparent focus:border-primary" />
+           <input placeholder="Descrição" value={description} onChange={e => setDescription(e.target.value)} className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-bold text-xs outline-none focus:border-primary border-2 border-transparent" />
 
            <div className="grid grid-cols-2 gap-2.5">
-              <button onClick={() => setView('CATEGORIES')} className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-between group overflow-hidden">
-                <div className="flex items-center gap-2">
-                   <div className="p-1.5 bg-primary/10 text-primary rounded-md"><Tag size={12}/></div>
-                   <span className="font-black text-[8px] uppercase tracking-widest truncate max-w-[60px]">{category}</span>
-                </div>
+              <button onClick={() => setView('CATEGORIES')} className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-between">
+                <span className="font-black text-[8px] uppercase truncate">{category}</span>
                 <ChevronDown size={12} className="opacity-20"/>
               </button>
-              <div className="relative flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl px-3">
-                 <Calendar size={12} className="text-slate-400 mr-2"/>
-                 <input type="date" value={date} onChange={e => setDate(e.target.value)} className="flex-1 bg-transparent font-black text-[8px] uppercase outline-none py-3 appearance-none" />
-              </div>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="p-3.5 bg-slate-50 dark:bg-slate-800 rounded-xl font-black text-[8px] uppercase outline-none" />
            </div>
         </section>
 
-        {/* DOCUMENTAÇÃO */}
-        <section className="space-y-3">
-           {/* CÓDIGO DE BARRAS - PARA TODAS AS SAÍDAS (CONTA OU CARTÃO) */}
+        {/* DOCUMENTAÇÃO E ANEXOS */}
+        <section className="space-y-4 pt-2">
            {!isIncome && (
-             <div className="space-y-1.5">
-                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><Barcode size={10}/> Boleto</p>
-                <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-xl space-y-2">
-                   <textarea value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Cole o código aqui..." className="w-full p-3 bg-white dark:bg-slate-900 rounded-lg font-mono text-[8px] border-2 border-transparent focus:border-primary outline-none shadow-sm min-h-[40px] resize-none" />
-                   {barcode.trim().length > 0 && (
-                      <button onClick={() => shareContent('Boleto', `Código: ${barcode}`)} className="w-full py-2 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center gap-2 font-black text-[7px] uppercase tracking-widest text-slate-500 shadow-sm border border-slate-100 dark:border-slate-700"><Share2 size={10}/> Compartilhar</button>
-                   )}
-                </div>
+             <div className="space-y-2">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5"><Barcode size={10}/> Código de Barras (Opcional)</p>
+                <textarea value={barcode} onChange={e => setBarcode(e.target.value)} placeholder="Cole o código do boleto..." className="w-full p-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-mono text-[8px] border-2 border-transparent focus:border-primary outline-none min-h-[40px] resize-none" />
              </div>
            )}
 
-           {/* ANEXOS UNIFICADOS - COMPROVANTE (ENTRADA) OU CONTA (SAÍDA) */}
-           <div className="space-y-1.5">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1.5">
-                <Paperclip size={10}/> {isIncome ? 'Anexar Comprovante' : 'Foto da Conta / Fatura'}
-              </p>
+           {/* ANEXO 1: CONTA/FATURA (DESTINO: PASTA CONTAS) */}
+           <div className="space-y-2">
+              <div className="flex items-center justify-between px-1">
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Paperclip size={10}/> {isIncome ? 'Anexo Principal' : 'Foto da Conta / Fatura'}</p>
+                <div className="flex items-center gap-1 opacity-40"><FolderClosed size={8}/><span className="text-[6px] font-black uppercase">Pasta: Contas</span></div>
+              </div>
               {billAttachment ? (
                 <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between">
                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden shadow-sm">
-                         {billAttachment.includes('pdf') ? <FileText size={16} className="text-primary"/> : <img src={billAttachment} className="w-full h-full object-cover" />}
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => openFile(billAttachment)} className="p-1.5 bg-primary/10 text-primary rounded-md"><Eye size={10}/></button>
-                        <button onClick={() => shareContent('Arquivo', 'Anexo', billAttachment, billFileName || 'doc.pdf')} className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 rounded-md"><Share2 size={10}/></button>
-                      </div>
+                      <button onClick={() => openFile(billAttachment)} className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center shadow-sm overflow-hidden">
+                        {billAttachment.includes('pdf') ? <FileText size={16} className="text-primary"/> : <img src={billAttachment} className="w-full h-full object-cover"/>}
+                      </button>
+                      <span className="text-[8px] font-black uppercase text-slate-500 truncate w-32">{billFileName}</span>
                    </div>
                    <button onClick={() => { setBillAttachment(undefined); setBillFileName(undefined); }} className="p-1.5 text-rose-500"><Trash2 size={14}/></button>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => setActiveCameraType('BILL')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all">
-                    <Camera size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">Foto</span>
+                  <button onClick={() => setActiveCameraTarget('BILL')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all">
+                    <Camera size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">Câmera</span>
                   </button>
-                  <button onClick={() => billFileInputRef.current?.click()} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all">
-                    <Upload size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">PDF</span>
+                  <button onClick={() => triggerFileInput('BILL')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-primary transition-all">
+                    <Upload size={16} className="text-slate-400 group-hover:text-primary"/><span className="text-[7px] font-black uppercase text-slate-400">PDF / Galeria</span>
                   </button>
                 </div>
               )}
-              <input ref={billFileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => handleFileUpload(e, 'BILL')} />
            </div>
+
+           {/* ANEXO 2: COMPROVANTE (DESTINO: PASTA RECIBOS) - APENAS PARA SAÍDAS */}
+           {!isIncome && (
+             <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between px-1">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><Receipt size={10}/> Comprovante de Pagamento</p>
+                  <div className="flex items-center gap-1 opacity-40"><FolderClosed size={8}/><span className="text-[6px] font-black uppercase">Pasta: Recibos</span></div>
+                </div>
+                {receiptAttachment ? (
+                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                        <button onClick={() => openFile(receiptAttachment)} className="w-8 h-8 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center shadow-sm overflow-hidden">
+                          {receiptAttachment.includes('pdf') ? <FileText size={16} className="text-emerald-500"/> : <img src={receiptAttachment} className="w-full h-full object-cover"/>}
+                        </button>
+                        <span className="text-[8px] font-black uppercase text-slate-500 truncate w-32">{receiptFileName}</span>
+                     </div>
+                     <button onClick={() => { setReceiptAttachment(undefined); setReceiptFileName(undefined); }} className="p-1.5 text-rose-500"><Trash2 size={14}/></button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => setActiveCameraTarget('RECEIPT')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-all">
+                      <Camera size={16} className="text-slate-400 group-hover:text-emerald-500"/><span className="text-[7px] font-black uppercase text-slate-400">Câmera</span>
+                    </button>
+                    <button onClick={() => triggerFileInput('RECEIPT')} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 flex flex-col items-center gap-1 group hover:border-emerald-500 transition-all">
+                      <Upload size={16} className="text-slate-400 group-hover:text-emerald-500"/><span className="text-[7px] font-black uppercase text-slate-400">PDF / Galeria</span>
+                    </button>
+                  </div>
+                )}
+             </div>
+           )}
         </section>
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-4 pb-6 bg-gradient-to-t from-white dark:from-slate-900 via-white/95 to-transparent z-40">
         <div className="grid grid-cols-2 gap-2.5 max-w-lg mx-auto">
-          <button onClick={() => submitWithStatus(false)} className={`py-3.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] transition-all shadow-md active:scale-95 ${paymentMethod === 'CARD' && !isIncome ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 col-span-2' : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-100 dark:border-slate-700'}`}>
-            {isIncome ? 'Agendar' : (paymentMethod === 'CARD' ? 'Confirmar Compra' : 'Agendar')}
-          </button>
-          {!(paymentMethod === 'CARD' && !isIncome) && (
-            <button onClick={() => submitWithStatus(true)} className={`py-3.5 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md active:scale-95 transition-all ${isIncome ? 'bg-emerald-500' : 'bg-primary'}`}>
-              Confirmar
-            </button>
-          )}
+          <button onClick={() => submitWithStatus(false)} className="py-3.5 bg-white dark:bg-slate-800 text-slate-500 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] border border-slate-100 dark:border-slate-700">Agendar</button>
+          <button onClick={() => submitWithStatus(true)} className={`py-3.5 text-white rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-md ${isIncome ? 'bg-emerald-500' : 'bg-primary'}`}>Confirmar</button>
         </div>
       </div>
 
-      {activeCameraType && <CameraModal onCapture={handleCameraCapture} onClose={() => setActiveCameraType(null)} />}
-      
-      {previewImage && (
-        <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-slate-950/98 backdrop-blur-3xl" onClick={() => setPreviewImage(null)}>
-           <button className="absolute top-6 right-6 p-4 bg-white/10 text-white rounded-full"><X size={24}/></button>
-           <img src={previewImage} className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl" alt="Preview"/>
-        </div>
-      )}
+      <input ref={fileInputRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileUpload} />
+      {activeCameraTarget && <CameraModal onCapture={handleCameraCapture} onClose={() => setActiveCameraTarget(null)} />}
+      {previewImage && <div className="fixed inset-0 z-[600] flex items-center justify-center p-4 bg-slate-950/98 backdrop-blur-3xl" onClick={() => setPreviewImage(null)}><img src={previewImage} className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"/></div>}
     </div>
   );
 };
