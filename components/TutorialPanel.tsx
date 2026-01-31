@@ -1,6 +1,6 @@
-
 import React from 'react';
-import { BookOpen, Wallet, CreditCard, Sparkles, Shield, Settings2, Calendar, LayoutList, Eye, Plus, CheckCircle, Smartphone, Camera, Receipt, Calculator, StickyNote, Bell, ArrowRightLeft, Move } from 'lucide-react';
+/* Added Database and Check to the imports from lucide-react */
+import { BookOpen, Wallet, CreditCard, Sparkles, Shield, Settings2, Calendar, LayoutList, Eye, Plus, CheckCircle, Smartphone, Camera, Receipt, Calculator, StickyNote, Bell, ArrowRightLeft, Move, Palette, Database, Check } from 'lucide-react';
 
 export const TutorialPanel: React.FC = () => {
   const steps = [
@@ -24,24 +24,37 @@ export const TutorialPanel: React.FC = () => {
       )
     },
     {
-      title: "Personalização de Animações",
-      desc: "Deixe o app com a sua cara! Acesse o menu e escolha 'Animações' para selecionar entre 30 efeitos de movimento diferentes para botões e ícones, ajustando velocidade e intensidade.",
+      title: "Movimentação Dinâmica",
+      desc: "Todos os botões e ícones clicáveis reagem ao seu toque e ao passar o cursor. No menu 'Animações', você pode escolher o tipo de movimento e ajustar a força da reação.",
       icon: <Move className="text-emerald-500" size={24}/>,
       bg: "bg-emerald-500/5",
       preview: (
         <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl flex flex-col items-center gap-2">
-           <div className="flex gap-2">
-              <div className="w-8 h-8 bg-primary rounded-xl animate-bounce"></div>
-              <div className="w-8 h-8 bg-rose-500 rounded-xl animate-pulse"></div>
-              <div className="w-8 h-8 bg-amber-500 rounded-xl animate-spin"></div>
+           <div className="flex gap-3">
+              <div className="w-10 h-10 bg-primary rounded-xl transition-all hover:scale-110 active:scale-90 flex items-center justify-center text-white font-black text-[10px]">TAP</div>
+              <div className="w-10 h-10 bg-emerald-500 rounded-xl transition-all hover:-translate-y-1 active:translate-y-1"></div>
            </div>
-           <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest mt-2">Escolha seu estilo</p>
+           <p className="text-[6px] font-black text-slate-400 uppercase tracking-widest mt-2">Reação física ao toque</p>
         </div>
       )
     },
     {
-      title: "Ferramentas Rápidas",
-      desc: "Abaixo dos seus cartões, você encontra o dock de utilidades: Calculadora (Amarelo), Lembretes (Rosa), Notas (Verde) e Conversor de Moedas (Azul). Toque em qualquer ícone para abrir a ferramenta instantaneamente.",
+      title: "Tema Personalizado",
+      desc: "Crie sua própria identidade visual. No menu 'Temas', você pode usar o seletor de cores para definir a cor principal de todo o aplicativo.",
+      icon: <Palette className="text-amber-500" size={24}/>,
+      bg: "bg-amber-500/5",
+      preview: (
+        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
+           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-rose-500"></div>
+           <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-2/3 h-full bg-primary"></div>
+           </div>
+        </div>
+      )
+    },
+    {
+      title: "Dock de Utilitários",
+      desc: "Abaixo dos seus cartões, você encontra as ferramentas rápidas: Calculadora, Lembretes, Notas e Conversor de Moedas. Toque em qualquer ícone para abrir.",
       icon: <Settings2 className="text-indigo-500" size={24}/>,
       bg: "bg-indigo-500/5",
       preview: (
@@ -54,68 +67,17 @@ export const TutorialPanel: React.FC = () => {
       )
     },
     {
-      title: "Calendário Interativo",
-      desc: "O calendário permite navegar pelo tempo. Ao pressionar uma data específica, o aplicativo filtra automaticamente todas as transações daquele dia no seu extrato principal.",
-      icon: <Calendar className="text-blue-500" size={24}/>,
-      bg: "bg-blue-500/5",
+      title: "Backup Completo",
+      desc: "Nunca perca seus dados. Acesse 'Backup' para exportar um arquivo .JSON com todas as suas informações, fotos e configurações para guardar com segurança.",
+      icon: <Database className="text-violet-500" size={24}/>,
+      bg: "bg-violet-500/5",
       preview: (
-        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm">
-           <div className="grid grid-cols-7 gap-1 text-center">
-              {[12,13,14,15,16,17,18].map(d => (
-                <div key={d} className={`p-1.5 rounded-lg text-[7px] font-black ${d === 15 ? 'bg-primary text-white shadow-lg' : 'bg-slate-50 text-slate-300'}`}>{d}</div>
-              ))}
+        <div className="mt-4 p-4 bg-slate-900 rounded-3xl flex items-center justify-between px-6">
+           <div className="flex flex-col">
+              <span className="text-[7px] font-black text-white/40 uppercase">JSON Export</span>
+              <span className="text-[9px] font-black text-white uppercase">backup_v4.json</span>
            </div>
-           <p className="text-[6px] font-black text-primary uppercase text-center mt-3 tracking-widest">Toque para filtrar o dia</p>
-        </div>
-      )
-    },
-    {
-      title: "Lançamentos e Recibos",
-      desc: "Clique em qualquer transação no extrato para ver detalhes, anexar comprovantes via câmera ou compartilhar o comprovante de pagamento.",
-      icon: <LayoutList className="text-slate-500" size={24}/>,
-      bg: "bg-slate-500/5",
-      preview: (
-        <div className="mt-4 p-4 bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center justify-between">
-           <div className="flex items-center gap-2">
-             <div className="w-8 h-8 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center"><CheckCircle size={14}/></div>
-             <div>
-               <p className="text-[8px] font-black uppercase">Supermercado</p>
-               <p className="text-[7px] text-slate-400">Pago • 15/05/2024</p>
-             </div>
-           </div>
-           <div className="text-[9px] font-black text-rose-500">- R$ 150,00</div>
-        </div>
-      )
-    },
-    {
-      title: "Câmera e Escaneamento",
-      desc: "Não perca tempo digitando. Ao criar uma saída, você pode fotografar a conta ou o recibo para armazenamento digital seguro.",
-      icon: <Camera className="text-purple-500" size={24}/>,
-      bg: "bg-purple-500/5",
-      preview: (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-           <div className="p-4 bg-primary text-white rounded-2xl flex flex-col items-center gap-2">
-              <Camera size={16}/>
-              <span className="text-[6px] font-black uppercase">Tirar Foto</span>
-           </div>
-           <div className="p-4 bg-slate-800 text-white rounded-2xl flex flex-col items-center gap-2">
-              <Receipt size={16}/>
-              <span className="text-[6px] font-black uppercase">Ver Anexo</span>
-           </div>
-        </div>
-      )
-    },
-    {
-      title: "Segurança por PIN",
-      desc: "Proteja seus dados contra acesso físico não autorizado. Ative o bloqueio por PIN nas configurações de segurança (ícone de escudo).",
-      icon: <Shield className="text-rose-500" size={24}/>,
-      bg: "bg-rose-500/5",
-      preview: (
-        <div className="mt-4 p-4 bg-slate-900 rounded-3xl flex flex-col items-center">
-           <div className="grid grid-cols-3 gap-1 mb-2">
-              {[1,2,3].map(n => <div key={n} className="w-4 h-4 bg-white/10 rounded-md"></div>)}
-           </div>
-           <span className="text-[7px] font-black text-white/40 uppercase tracking-widest">Digite seu código</span>
+           <Check size={16} className="text-emerald-500"/>
         </div>
       )
     }
@@ -156,14 +118,14 @@ export const TutorialPanel: React.FC = () => {
       <div className="p-8 bg-slate-900 text-white rounded-[3rem] text-center mt-12 border-4 border-primary/20">
          <p className="text-[8px] font-black uppercase tracking-[0.4em] mb-4 text-primary">Dica de Ouro</p>
          <p className="text-[11px] font-bold leading-relaxed uppercase">
-           Mantenha o backup (arquivo .json) sempre atualizado. Você pode exportá-lo na seção de "Cópia de Segurança" para nunca perder seus dados se trocar de celular!
+           Mantenha o backup sempre atualizado. Você pode restaurar seus dados em qualquer navegador ou celular apenas importando o arquivo salvo!
          </p>
       </div>
       
       <div className="pb-12 text-center">
         <div className="flex items-center justify-center gap-2 mb-2">
            <Smartphone size={12} className="text-slate-300"/>
-           <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">App Version 3.2.0 (Build 2024)</span>
+           <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">App Version 4.1.0 (Build 2025)</span>
         </div>
         <p className="text-[7px] font-bold text-slate-200 uppercase tracking-[0.5em]">Minha Carteira Inteligente</p>
       </div>

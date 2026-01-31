@@ -3,7 +3,8 @@ import {
   Bell, Lock, Globe, Palette, Sun, Moon, Menu, ChevronLeft, ChevronRight, 
   Eye, EyeOff, TrendingUp, TrendingDown, Wallet, LayoutGrid, CreditCard as CreditCardIcon, 
   LayoutList, Calculator as CalcIcon, Coins, ListCheck, StickyNote, FolderOpen, Cake, Database, Search, History,
-  UserCircle, Building2, AlertTriangle, Shield, Sparkles, Activity, Check, ArrowLeft, X, PartyPopper, Move
+  UserCircle, Building2, AlertTriangle, Shield, Sparkles, Activity, Check, ArrowLeft, X, PartyPopper, Move,
+  Pipette
 } from 'lucide-react';
 
 import { 
@@ -78,6 +79,7 @@ const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('pt');
   const [isDark, setIsDark] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('default');
+  const [customThemeColor, setCustomThemeColor] = useState('#6366f1');
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   const [appPin, setAppPin] = useState('');
   
@@ -113,6 +115,7 @@ const App: React.FC = () => {
     setLanguage((localStorage.getItem('wallet_language') as Language) || 'pt');
     setIsDark(localStorage.getItem('wallet_dark') === 'true');
     setCurrentTheme(localStorage.getItem('wallet_theme') || 'default');
+    setCustomThemeColor(localStorage.getItem('wallet_custom_color') || '#6366f1');
     setIsBalanceHidden(localStorage.getItem('wallet_balance_hidden') === 'true');
     setAppPin(localStorage.getItem('wallet_app_pin') || '');
   }, []);
@@ -131,20 +134,25 @@ const App: React.FC = () => {
     localStorage.setItem('wallet_language', language);
     localStorage.setItem('wallet_dark', String(isDark));
     localStorage.setItem('wallet_theme', currentTheme);
+    localStorage.setItem('wallet_custom_color', customThemeColor);
     localStorage.setItem('wallet_balance_hidden', String(isBalanceHidden));
     localStorage.setItem('wallet_app_pin', appPin);
-  }, [transactions, categories, user, bankAccounts, creditCards, reminders, birthdays, dailyNotes, language, isDark, currentTheme, isBalanceHidden, appPin]);
+  }, [transactions, categories, user, bankAccounts, creditCards, reminders, birthdays, dailyNotes, language, isDark, currentTheme, customThemeColor, isBalanceHidden, appPin]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
   useEffect(() => {
-    const theme = THEMES.find(t => t.id === currentTheme);
-    if (theme) {
-      document.documentElement.style.setProperty('--primary-color', theme.color);
+    if (currentTheme === 'custom') {
+      document.documentElement.style.setProperty('--primary-color', customThemeColor);
+    } else {
+      const theme = THEMES.find(t => t.id === currentTheme);
+      if (theme) {
+        document.documentElement.style.setProperty('--primary-color', theme.color);
+      }
     }
-  }, [currentTheme]);
+  }, [currentTheme, customThemeColor]);
 
   // Apply Global Animations
   useEffect(() => {
@@ -245,7 +253,7 @@ const App: React.FC = () => {
       filtered = filtered.filter(t => t.date > tomorrowStr);
     }
 
-    return filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    return filtered.sort((a, b) => (a.date || '').localeCompare(a.date || ''));
   }, [transactions, searchTerm, moveFilter, todayStr, tomorrowStr, viewAccountId, viewCardId]);
 
   const bankAccountsWithBalance = useMemo(() => {
@@ -830,10 +838,47 @@ const App: React.FC = () => {
                 {activePanel === 'tutorial' && <TutorialPanel />}
                 {activePanel === 'themes' && (
                   <div className="h-full overflow-y-auto custom-scrollbar pt-20 px-6 pb-8">
-                    <div className="grid grid-cols-2 gap-3">
+                    <h2 className="text-xl font-black mb-8 text-center uppercase tracking-[0.4em]">Paleta de Cores</h2>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-10">
                       {THEMES.map(theme => (
                         <button key={theme.id} onClick={() => setCurrentTheme(theme.id)} className={`p-5 rounded-[2rem] border-2 flex flex-col items-center gap-3 transition-all ${currentTheme === theme.id ? 'border-primary bg-primary/5 shadow-xl' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'}`}><div className="w-10 h-10 rounded-[1rem] shadow-lg" style={{ backgroundColor: theme.color }}></div><span className="font-bold text-[9px] uppercase tracking-widest">{theme.name}</span></button>
                       ))}
+                    </div>
+
+                    <div className="p-8 bg-slate-50 dark:bg-slate-800/40 rounded-[3rem] border border-slate-100 dark:border-slate-800">
+                       <h4 className="font-black text-xs uppercase tracking-widest mb-6 flex items-center gap-2"><Pipette size={16} className="text-primary"/> Tema Personalizado</h4>
+                       
+                       <div className="flex flex-col items-center gap-6">
+                          <div 
+                            className="w-20 h-20 rounded-[2.5rem] shadow-2xl flex items-center justify-center relative overflow-hidden"
+                            style={{ backgroundColor: customThemeColor }}
+                          >
+                             <input 
+                               type="color" 
+                               value={customThemeColor} 
+                               onChange={(e) => {
+                                 setCustomThemeColor(e.target.value);
+                                 setCurrentTheme('custom');
+                               }}
+                               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                             />
+                             <Check size={32} className="text-white drop-shadow-md"/>
+                          </div>
+                          
+                          <div className="w-full">
+                             <div className="flex justify-between mb-2">
+                                <span className="text-[8px] font-black text-slate-400 uppercase">Seletor de Cor</span>
+                                <span className="text-[8px] font-black text-primary uppercase">{customThemeColor}</span>
+                             </div>
+                             <button 
+                               onClick={() => setCurrentTheme('custom')}
+                               className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${currentTheme === 'custom' ? 'bg-primary text-white shadow-lg' : 'bg-white dark:bg-slate-700 text-slate-400 border border-slate-200 dark:border-slate-600'}`}
+                             >
+                               Aplicar Minha Cor
+                             </button>
+                          </div>
+                       </div>
                     </div>
                   </div>
                 )}
